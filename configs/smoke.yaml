@@ -1,0 +1,47 @@
+project:
+  name: Level Probability Lab
+  research_only: true
+
+paths:
+  data_dir: data
+
+prediction:
+  symbol: QQQ
+  context_symbols:
+    - SPY
+  lookback_minutes: 30
+  horizon_minutes: 15
+  min_observed_for_vol: 20
+
+boundaries:
+  k_up: 1.0
+  k_down: 1.0
+  vol_method: std_log_return
+
+time:
+  calendar: NYSE
+  bar_interval_minutes: 1
+  publication_lag_seconds: 0
+  max_no_trade_gap_minutes: 5
+  context_stale_seconds: 60
+  discontinuity_log_return: 0.08
+
+synthetic:
+  seed: 42
+  start: "2024-06-28"
+  end: "2024-07-05"
+  qqq_start_price: 450.0
+  spy_start_price: 550.0
+  sigma: 0.0004
+
+databento:
+  dataset: EQUS.MINI
+  schema: ohlcv-1m
+  symbols:
+    - QQQ
+    - SPY
+  stype_in: raw_symbol
+  start: "2026-08-01"
+  end: "2026-09-01"
+  download_enabled: false
+  spending_cap_usd: 0.0

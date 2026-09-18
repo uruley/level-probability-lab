@@ -1,0 +1,70 @@
+# Frozen before model fitting. Do not change dates after download in order to
+# chase a better score. August 2026 is development, not holdout.
+experiment:
+  id: v1
+  status: specified_not_run
+  target: QQQ
+  feed: XNAS.ITCH
+  schema: ohlcv-1m
+  nasdaq_venue_only: true
+  context_symbols: [NVDA, TSLA]
+
+label:
+  lookback_minutes: 120
+  horizon_minutes: 15
+  min_observed_for_vol: 60
+  vol_method: std_log_return
+  vol_ddof: 1
+  k_grid: [2.0, 3.0, 4.0]
+  k_documented_not_in_bakeoff: [1.0]
+  compare_models_within_same_k: true
+
+partitions:
+  timezone_sessions: America/New_York
+  calendar: NYSE
+  overlap_rule: drop_if_horizon_end_after_next_partition_open
+  train:
+    first_session: "2018-05-01"
+    last_session: "2023-12-29"
+  validation_calibration:
+    first_session: "2024-01-02"
+    last_session: "2024-12-31"
+  protected_holdout:
+    first_session: "2025-01-02"
+    last_session: "2026-07-31"
+  development_inspected:
+    first_session: "2026-08-03"
+    last_session: "2026-08-31"
+    used_for: [label_audit, barrier_grid]
+    used_for_reported_scores: false
+
+purchase_proposal:
+  authorized: false
+  proposed_ceiling_usd: 5.0
+  fingerprint: "a0bdd1f87cd32d5ef6c64228866e3be8db21850562b2288ecb45b9b79ada6fa6"
+  dataset: XNAS.ITCH
+  schema: ohlcv-1m
+  symbols: [NVDA, QQQ, TSLA]
+  start_utc_inclusive: "2018-05-01T00:00:00Z"
+  end_utc_exclusive: "2026-09-01T00:00:00Z"
+  estimated_cost_usd: 3.15724119544
+
+models:
+  - constant_train_class_frequencies
+  - historical_frequencies_by_time_vol_distance
+  - boosted_tree_qqq_only
+  - boosted_tree_qqq_plus_nvda_tsla_context
+
+metrics:
+  - brier
+  - log_loss
+  - classwise_reliability
+  - sample_counts_including_ambiguous_incomplete
+  - delta_vs_constant_and_conditional_baseline
+
+out_of_scope:
+  - options
+  - full_month_trade_prints
+  - nemotron
+  - sequence_model
+  - live_trading

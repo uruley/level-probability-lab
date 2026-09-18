@@ -1,0 +1,49 @@
+# Multi-year history request. Quote only until explicitly approved.
+# Proposed ceiling $5 is NOT authorization to download.
+project:
+  name: Level Probability Lab
+  research_only: true
+
+paths:
+  data_dir: data
+
+prediction:
+  symbol: QQQ
+  context_symbols:
+    - NVDA
+    - TSLA
+  lookback_minutes: 120
+  horizon_minutes: 15
+  min_observed_for_vol: 60
+
+boundaries:
+  # Default k=1 is the Phase 1 implementation. Experiment spec may freeze a
+  # different k from the development barrier grid. Do not mix k across model
+  # comparisons.
+  k_up: 1.0
+  k_down: 1.0
+  vol_method: std_log_return
+  vol_lookback_minutes: 120
+  vol_ddof: 1
+
+time:
+  calendar: NYSE
+  bar_interval_minutes: 1
+  publication_lag_seconds: 0
+  max_no_trade_gap_minutes: 5
+  context_stale_seconds: 60
+  discontinuity_log_return: 0.08
+
+databento:
+  dataset: XNAS.ITCH
+  schema: ohlcv-1m
+  symbols:
+    - QQQ
+    - NVDA
+    - TSLA
+  stype_in: raw_symbol
+  start: "2018-05-01T00:00:00Z"
+  end: "2026-09-01T00:00:00Z"
+  download_enabled: false
+  spending_cap_usd: 0.0
+  proposed_ceiling_usd: 5.0

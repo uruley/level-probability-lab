@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "level-probability-lab"
+version = "0.1.0"
+description = "Research pipeline for estimating the probability of reaching future price levels. Paper testing only."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pandas>=2.0",
+    "pyarrow>=14.0",
+    "numpy>=1.26",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0",
+    "pandas-market-calendars>=4.4",
+]
+
+[project.optional-dependencies]
+databento = ["databento>=0.45"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+lpl = "level_probability_lab.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

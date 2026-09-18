@@ -1,0 +1,45 @@
+# Proposed pilot request. Quote this. Do not download until the printed
+# request, estimated cost, and spending cap are approved.
+project:
+  name: Level Probability Lab
+  research_only: true
+
+paths:
+  data_dir: data
+
+prediction:
+  symbol: QQQ
+  context_symbols:
+    - NVDA
+    - TSLA
+  lookback_minutes: 120
+  horizon_minutes: 15
+  min_observed_for_vol: 60
+
+boundaries:
+  k_up: 1.0
+  k_down: 1.0
+  vol_method: std_log_return
+
+time:
+  calendar: NYSE
+  bar_interval_minutes: 1
+  publication_lag_seconds: 0
+  max_no_trade_gap_minutes: 5
+  context_stale_seconds: 60
+  discontinuity_log_return: 0.08
+
+databento:
+  dataset: XNAS.ITCH
+  schema: ohlcv-1m
+  symbols:
+    - QQQ
+    - NVDA
+    - TSLA
+  stype_in: raw_symbol
+  # Most recent complete calendar month as of 2026-09-17.
+  # Databento end is exclusive.
+  start: "2026-08-01"
+  end: "2026-09-01"
+  download_enabled: false
+  spending_cap_usd: 0.0
