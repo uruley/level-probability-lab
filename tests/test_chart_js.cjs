@@ -1,0 +1,17 @@
+const assert=require('node:assert/strict');
+const chart=require('../src/level_probability_lab/lab_web/chart.js');
+const start=Date.parse('2026-05-01T13:30Z');
+const bars=Array.from({length:11},(_,i)=>({t:new Date(start+i*60000).toISOString(),o:100+i,h:102+i,l:99+i,c:101+i,v:10}));
+const state={session_open:bars[0].t,clock:new Date(start+11*60000).toISOString(),bars};
+const five=chart.intraday(state,5);
+assert.equal(five.length,2);assert.equal(five[0].o,100);assert.equal(five[0].c,105);assert.equal(five[0].h,106);assert.equal(five[0].v,50);
+const gap=chart.intraday({...state,bars:bars.filter((_,i)=>i!==2)},5);
+assert.equal(gap[0].c,null);assert.equal(gap[1].c,110);
+const values=chart.indicators(Array.from({length:20},(_,i)=>({c:i+1})));
+assert.equal(values[19].sma20,10.5);assert.ok(Math.abs(values[19].bbUpper-(10.5+2*Math.sqrt(33.25)))<1e-9);
+assert.equal(values[19].sma50,null);
+const source=[{end:'2026-05-01T14:30Z',sma20:100},{end:'2026-05-01T15:30Z',sma20:999}];
+assert.deepEqual(chart.asOf(source,[{end:'2026-05-01T14:29Z'},{end:'2026-05-01T14:30Z'},{end:'2026-05-01T15:29Z'}],'sma20'),[null,100,100]);
+console.log('Chart aggregation, missing bars, formulas and as-of joins pass.');
+
+assert.deepEqual(chart.candleData([{t:'2026-05-01T13:30Z',o:100,h:102,l:99,c:101},{t:'2026-05-01T13:31Z',o:null,h:null,l:null,c:null}]),[{time:1777642200,open:100,high:102,low:99,close:101},{time:1777642260}]);

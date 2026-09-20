@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 from datetime import datetime, timezone
 from pathlib import Path
@@ -260,8 +261,8 @@ class DatabentoAdapter:
             raise DownloadBlocked("Download is disabled (download_enabled is false / missing --enable-download).")
         if not approved:
             raise DownloadBlocked("Missing --i-approve-this-exact-request.")
-        if spending_cap_usd is None or float(spending_cap_usd) <= 0:
-            raise DownloadBlocked("Spending cap is $0. Pass --spending-cap with a positive USD amount.")
+        if spending_cap_usd is None or not math.isfinite(float(spending_cap_usd)) or float(spending_cap_usd) <= 0:
+            raise DownloadBlocked("Pass --spending-cap with a finite positive USD amount.")
 
         prior = self._prior_state(fingerprint)
         if prior and prior.get("state") == "completed":
@@ -285,6 +286,8 @@ class DatabentoAdapter:
                 stype_in=canon["stype_in"],
             )
         )
+        if not math.isfinite(cost) or cost < 0:
+            raise DownloadBlocked("Fresh cost estimate is invalid; no market-data request was sent.")
         if cost > float(spending_cap_usd):
             raise CostCapExceeded(
                 f"Fresh get_cost estimate ${cost:.4f} exceeds spending cap ${float(spending_cap_usd):.4f}."
@@ -292,7 +295,7 @@ class DatabentoAdapter:
 
         raw_dir = Path(raw_dir) if raw_dir is not None else self.root / "data" / "raw"
         ensure_dir(raw_dir)
-        raw_path = raw_dir / f"{canon['dataset'].replace('.', '_')}_{fingerprint[:12]}.ohlcv-1m.dbn.zst"
+        raw_path = raw_dir / f"{canon['dataset'].replace('.', '_')}_{fingerprint[:12]}.{canon['schema']}.dbn.zst"
         manifest = {
             "kind": "download",
             "created_at": _now_iso(),

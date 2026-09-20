@@ -146,6 +146,7 @@ class KronosPathForecaster:
         temperature: float = 1.0,
         top_p: float = 0.9,
         top_k: int = 0,
+        cache_dir: Path | None = None,
     ) -> None:
         if not device.startswith("cuda"):
             raise RuntimeError(f"refusing non-CUDA device {device!r}")
@@ -166,26 +167,26 @@ class KronosPathForecaster:
         self.top_k = top_k
 
         tok_cfg = json.loads(
-            Path(hf_hub_download(tokenizer_id, "config.json", revision=tokenizer_revision, local_files_only=True)).read_text(
+            Path(hf_hub_download(tokenizer_id, "config.json", revision=tokenizer_revision, local_files_only=True, cache_dir=cache_dir)).read_text(
                 encoding="utf-8"
             )
         )
         model_cfg = json.loads(
-            Path(hf_hub_download(model_id, "config.json", revision=model_revision, local_files_only=True)).read_text(
+            Path(hf_hub_download(model_id, "config.json", revision=model_revision, local_files_only=True, cache_dir=cache_dir)).read_text(
                 encoding="utf-8"
             )
         )
         tokenizer = KronosTokenizer(**tok_cfg)
         tokenizer.load_state_dict(
             load_file(
-                hf_hub_download(tokenizer_id, "model.safetensors", revision=tokenizer_revision, local_files_only=True),
+                hf_hub_download(tokenizer_id, "model.safetensors", revision=tokenizer_revision, local_files_only=True, cache_dir=cache_dir),
                 device=device,
             )
         )
         model = Kronos(**model_cfg)
         model.load_state_dict(
             load_file(
-                hf_hub_download(model_id, "model.safetensors", revision=model_revision, local_files_only=True),
+                hf_hub_download(model_id, "model.safetensors", revision=model_revision, local_files_only=True, cache_dir=cache_dir),
                 device=device,
             )
         )
@@ -198,7 +199,10 @@ class KronosPathForecaster:
         torch.manual_seed(int(seed))
         torch.cuda.manual_seed_all(int(seed))
         df = window[["open", "high", "low", "close", "volume"]].copy()
-        df["amount"] = df["volume"].astype(np.float64) * df["close"].astype(np.float64)
+        df["amount"] = (window["amount"].astype(np.float64) if "amount" in window
+                        else df["volume"].astype(np.float64) * df["close"].astype(np.float64))
+        if not np.isfinite(df["amount"]).all() or (df["amount"] <= 0).any():
+            raise ValueError("Invalid traded-dollar input")
         x_ts = pd.to_datetime(window["bar_start"], utc=True).dt.tz_convert("America/New_York")
         y_index = pd.DatetimeIndex(future_ts)
         if y_index.tz is None:

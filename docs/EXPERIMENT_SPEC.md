@@ -1,5 +1,13 @@
 # Frozen experiment specification (v1)
 
+**Subsequent study note (2026-09-19):** this is the historical fifteen-minute
+barrier-study specification. The user has since authorized a separate
+[five-minute Kronos/trade study](THREE_MONTH_STUDY_PROTOCOL.md). May and June
+2026 are now development/validation data for that work and must not be called
+untouched holdout in future reports. July is evaluated only after that new
+study's settings are frozen. The multi-year candle download referenced below
+was completed on 2026-09-17; its older acquisition status is retained as history.
+
 Status: **specified, not run**. No model has been fit. The multi-year file
 has **not** been purchased. This document freezes dates, labels, and
 comparisons before model selection.

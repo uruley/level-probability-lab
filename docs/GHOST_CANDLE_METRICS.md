@@ -54,9 +54,19 @@ Brier are NaN for that engine.
 
 ## Calibration
 
-Event y = 1{actual_close > origin}. Model p = sample fraction with
-close > origin. Brier = (p − y)². Reliability tables bin p into 10
-equal-width bins and compare mean p to empirical frequency.
+Event y = 1{actual_close > origin}. Model p = sample fraction (or weighted
+analogue fraction) with close > origin. Brier = (p − y)².
+
+Also report:
+
+- train climatology P(y=1) on RTH QQQ through 2023-12-29
+- Brier Skill Score vs that climatology
+- log loss
+- reliability bins (default 0–0.40, 0.40–0.45, 0.45–0.55, 0.55–0.60, 0.60–0.70, 0.70–1) with n, mean p, event rate, subsequent returns
+- OLS calibration slope/intercept when p varies
+- **session-block bootstrap** 95% CIs. Overlapping minutes are not independent draws.
+
+See `docs/ANALOGUE_EXPERIMENTS.md`. `python -m level_probability_lab ghost-metrics`.
 
 ## Historical analogues
 
@@ -65,8 +75,9 @@ range / last close, and relative volume. Distance is Euclidean on the path
 plus 0.25 × sum of log-ratio scalar distances. Weights are fixed, not fit
 on 2026-08-14.
 
-Eligible windows: lookback end **and** the subsequent 5-minute horizon
-must finish strictly before the origin timestamp (no future leakage).
+Eligible windows: lookback end **and** the subsequent horizon **bar_end**
+must finish strictly before the origin timestamp (`analogue_future_end < T`).
+Source timestamps are stored. A leak raises `AnalogueLeakageError`.
 Overlapping retrieved windows are allowed and disclosed
 (`n_overlapping_pairs`, mean/max overlap fraction, distinct sessions).
 

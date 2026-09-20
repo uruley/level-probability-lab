@@ -1,5 +1,28 @@
 # Level Probability Lab
 
+## Kronos Lab visual replay
+
+Active scope and next milestones: [Kronos Lab goals](docs/KRONOS_LAB_GOALS.md).
+
+The local visual app is available at `http://127.0.0.1:8765` while running:
+
+```powershell
+.\.venv\Scripts\python.exe -m level_probability_lab.lab
+```
+
+Choose a historical session, generate five-minute forecasts with Kronos Base
+or Small, and reveal actual candles with play/step controls. See
+[the app guide](docs/KRONOS_LAB_APP.md) for model setup and score semantics.
+
+The agent-run comparison is documented in
+[the three-month study protocol](docs/THREE_MONTH_STUDY_PROTOCOL.md) and
+[the time-and-sales plan](docs/TIME_AND_SALES_STUDY.md). Baseline artifacts are
+under `data/kronos_baseline_v1/`; acquired trades and their data-quality audit
+are separate from the interactive replay. The final July test is gated on
+frozen May/June fitting and selection artifacts.
+
+## Original probability research pipeline
+
 Research pipeline for estimating the probability that QQQ reaches a frozen upper
 or lower price boundary first within a short horizon, using completed 1-minute
 bars and SPY as market context.

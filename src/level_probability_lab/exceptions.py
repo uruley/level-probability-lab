@@ -36,3 +36,7 @@ class ForecastLocked(LabError):
 
 class SessionBoundaryError(LabError):
     pass
+
+
+class AnalogueLeakageError(LabError):
+    """An analogue outcome was not fully known before the forecast origin."""

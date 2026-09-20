@@ -69,6 +69,8 @@ def test_analogues_cannot_use_windows_at_or_after_origin():
         assert pd.Timestamp(end) < origin_row["bar_start"]
     for end in meta["analogue_lookback_last_starts"]:
         assert pd.Timestamp(end) < origin_row["bar_start"]
+    for end in meta["analogue_future_ends"]:
+        assert pd.Timestamp(end) < origin_row["bar_start"]
 
 
 def test_overlapping_analogues_are_disclosed():

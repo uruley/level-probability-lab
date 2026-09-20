@@ -38,9 +38,14 @@ def score_engine(forecasts: list[dict], bars: pd.DataFrame, engine: str) -> pd.D
             hit = directional_hit(median_c, act_c, origin_close)
             p_up = st["p_close_gt_origin"]
             p_dn = st["p_close_lt_origin"]
+            weighted = (forecast.get("analogue_meta") or {}).get("weighted_p_close_gt_origin")
+            if weighted is not None and h_idx < len(weighted):
+                p_up = float(weighted[h_idx])
+                p_dn = float(max(0.0, min(1.0, 1.0 - p_up)))
             y_up = int(act_c > origin_close)
             y_dn = int(act_c < origin_close)
-            is_persist = engine == "persistence" or stance == 0 and engine == "persistence"
+            is_persist = engine == "persistence"
+            p_clip = min(max(float(p_up), 1e-6), 1.0 - 1e-6)
             row = {
                 "engine": engine,
                 "forecast_id": forecast.get("forecast_id"),
@@ -52,6 +57,7 @@ def score_engine(forecasts: list[dict], bars: pd.DataFrame, engine: str) -> pd.D
                 "actual_close": act_c,
                 "actual_high": act_h,
                 "actual_low": act_l,
+                "subsequent_return": (act_c / origin_close - 1.0) if origin_close else np.nan,
                 "median_close": median_c,
                 "median_close_abs_error": abs(median_c - act_c),
                 "displayed_close_abs_error": (
@@ -59,10 +65,11 @@ def score_engine(forecasts: list[dict], bars: pd.DataFrame, engine: str) -> pd.D
                 ),
                 "stance": stance,
                 "directional_hit": hit if hit is not None else np.nan,
-                "p_close_gt_origin": np.nan if engine == "persistence" else p_up,
-                "p_close_lt_origin": np.nan if engine == "persistence" else p_dn,
-                "brier_up": np.nan if engine == "persistence" else (p_up - y_up) ** 2,
-                "brier_down": np.nan if engine == "persistence" else (p_dn - y_dn) ** 2,
+                "p_close_gt_origin": np.nan if is_persist else p_up,
+                "p_close_lt_origin": np.nan if is_persist else p_dn,
+                "brier_up": np.nan if is_persist else (p_up - y_up) ** 2,
+                "brier_down": np.nan if is_persist else (p_dn - y_dn) ** 2,
+                "log_loss_up": np.nan if is_persist else float(-(y_up * np.log(p_clip) + (1 - y_up) * np.log(1 - p_clip))),
                 "actual_up": y_up,
                 "close_q10": st.get("close_q10"),
                 "close_q90": st.get("close_q90"),

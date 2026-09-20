@@ -27,6 +27,9 @@ lpl = "level_probability_lab.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+level_probability_lab = ["lab_web/*.html", "lab_web/*.css", "lab_web/*.js"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"

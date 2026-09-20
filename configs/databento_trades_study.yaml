@@ -1,0 +1,19 @@
+# Quotes only. Any download requires exact-request approval after a fresh quote.
+databento:
+  dataset: XNAS.ITCH
+  schema: trades
+  symbols: [QQQ]
+  stype_in: raw_symbol
+  start: "2026-05-01T00:00:00Z"
+  end: "2026-08-01T00:00:00Z"
+  download_enabled: false
+  spending_cap_usd: 0.0
+study:
+  development_month: "2026-05"
+  validation_month: "2026-06"
+  sealed_test_month: "2026-07"
+  acquisition_scope: full_day_including_extended_hours
+  modeling_scope: regular_session_completed_minutes_only
+  setup_sample:
+    start: "2026-05-04T13:30:00Z"
+    end: "2026-05-04T20:00:00Z"

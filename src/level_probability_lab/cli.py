@@ -80,7 +80,7 @@ def cmd_download(args: argparse.Namespace) -> int:
         raw_dir=layout["raw"],
     )
     raw_path = result.get("raw_path")
-    if result.get("state") == "completed" and raw_path:
+    if result.get("state") == "completed" and raw_path and request["schema"] == "ohlcv-1m":
         from level_probability_lab.ingest import ohlcv_from_dbn_file
         from level_probability_lab.storage import write_parquet
 
@@ -147,6 +147,48 @@ def cmd_ghost_eval(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_setup_replay(args: argparse.Namespace) -> int:
+    from level_probability_lab.setup_replay import run_setup_replay
+
+    path = run_setup_replay(
+        labels_path=Path(args.labels) if args.labels else None,
+        bars_path=Path(args.bars) if args.bars else None,
+        out_path=Path(args.out) if args.out else None,
+        session_date=args.session,
+        open_browser=bool(args.open),
+        root=Path(args.project_root) if args.project_root else None,
+    )
+    print(f"setup replay: {path}")
+    print("Paper testing only. Frozen lines do not move. A touch is not a fill.")
+    return 0
+
+
+def cmd_ghost_metrics(args: argparse.Namespace) -> int:
+    from level_probability_lab.ghost_candles.analogue_experiments import run_existing_prob_eval
+
+    record = run_existing_prob_eval()
+    print(json.dumps(record.get("leaderboard_pooled_h5"), indent=2, default=str))
+    print("Paper testing only. Session-blocked CIs. August is development.")
+    return 0
+
+
+def cmd_analogue_sweep(args: argparse.Namespace) -> int:
+    from level_probability_lab.ghost_candles.analogue_experiments import run_lookback_sweep
+
+    if args.dimension != "lookback":
+        print(f"error: only dimension lookback is unlocked; {args.dimension} is frozen until lookback lands", file=sys.stderr)
+        return 2
+    summary = run_lookback_sweep(
+        max_eval_sessions=int(args.max_sessions),
+        origin_stride=int(args.origin_stride),
+        corpus_stride=int(args.corpus_stride),
+        k=int(args.k),
+    )
+    print(json.dumps({"configs_run": summary.get("configs_run"), "eval": summary.get("eval")}, indent=2, default=str))
+    print("No Databento purchase. Kronos not retuned. Next axes (k, weighting, features) stay frozen.")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="level_probability_lab",
@@ -205,6 +247,34 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_eval = sub.add_parser("ghost-eval", help="Pooled QQQ ghost-candle evaluation (no new data purchase).")
     p_eval.set_defaults(func=cmd_ghost_eval)
+
+    p_replay = sub.add_parser(
+        "setup-replay",
+        help="Write a local HTML replay of frozen upper/lower setups (no download).",
+    )
+    p_replay.add_argument("--labels", default=None, help="Labels parquet (default: August pilot labels).")
+    p_replay.add_argument("--bars", default=None, help="Normalized bars parquet (default: August pilot bars).")
+    p_replay.add_argument("--out", default=None, help="HTML output path.")
+    p_replay.add_argument("--session", default=None, help="Optional YYYY-MM-DD to include one session only.")
+    p_replay.add_argument("--open", action="store_true", help="Open the HTML file in a browser.")
+    p_replay.set_defaults(func=cmd_setup_replay)
+
+    p_metrics = sub.add_parser(
+        "ghost-metrics",
+        help="Re-score existing ghost-eval with climatology, BSS, log loss, session-blocked CIs (CPU).",
+    )
+    p_metrics.set_defaults(func=cmd_ghost_metrics)
+
+    p_an = sub.add_parser(
+        "analogue-sweep",
+        help="One-axis analogue experiment on local history (default: lookback). No download.",
+    )
+    p_an.add_argument("--dimension", default="lookback", help="Only 'lookback' is unlocked.")
+    p_an.add_argument("--max-sessions", type=int, default=40)
+    p_an.add_argument("--origin-stride", type=int, default=15)
+    p_an.add_argument("--corpus-stride", type=int, default=5)
+    p_an.add_argument("--k", type=int, default=50)
+    p_an.set_defaults(func=cmd_analogue_sweep)
 
     return parser
 
