@@ -1,0 +1,14 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const source=fs.readFileSync('src/level_probability_lab/lab_web/app.js','utf8');
+const part=source.slice(source.indexOf('async function liveForecasts()'),source.indexOf('async function startLive()'));
+const ctx={liveRunning:true,state:{live_info:{ready:true},can_forecast:true,clock:'a',can_hour_forecast:true,hour_forecasts:[]},liveLastForecast:'',$:()=>({checked:true,value:'10'}),HourView:{rolloverSamples:()=>null},forecast:async()=>{throw Error('test minute failure')},forecastHour:async()=>{throw Error('test hour failure')}};
+vm.createContext(ctx);vm.runInContext(part,ctx);
+(async()=>{const warning=await ctx.liveForecasts();assert(warning.includes('test minute failure'));assert(warning.includes('test hour failure'));assert(ctx.liveRunning);assert.equal(ctx.liveLastForecast,'a');console.log('Forecast failures stay isolated from live candle polling.');})();
+const source2=fs.readFileSync('src/level_probability_lab/lab_web/app.js','utf8');
+const delayCode=source2.slice(source2.indexOf('function livePollDelay()'));
+let now=120000;const delayContext={Date:{now:()=>now,parse:Date.parse},state:{clock:new Date(60000).toISOString()}};
+vm.createContext(delayContext);vm.runInContext(delayCode,delayContext);
+assert.equal(delayContext.livePollDelay(),6000);
+now=128000;assert.equal(delayContext.livePollDelay(),5000);
+delayContext.state.clock=new Date(120000).toISOString();assert.equal(delayContext.livePollDelay(),58000);
+console.log('Minute-aligned polling waits for close, retries missing data, and avoids redundant fetches.');

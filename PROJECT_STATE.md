@@ -355,3 +355,136 @@ momentum controls remain excluded. Seventeen focused tests pass (sandbox temp
 permissions required an approved offline rerun). Earlier v1/v2 artifacts remain
 unchanged. Runner: `scripts/run_location_v3.py` phases prepare/forecast/analyze;
 completed results are protected against overwrite by the runner.
+
+## One-hour visual forecast added (2026-09-20)
+
+User approved a longer-horizon chart view and explicitly deferred daily forecasts.
+The main minute chart now offers Forecast one hour: Kronos Base consumes 120
+completed five-minute regular-session candles from recent sessions and samples
+twelve future five-minute candles. Fixed seed42; selectable10/25/50 paths;
+approximate volume-times-close amount. Forecast only at five-minute boundaries
+with a full hour before session close. Gaps in the trailing input are rejected.
+
+Amber full-hour range shading and an ending-close dot overlay the one-minute
+chart. A separate picker retains earlier frozen forecasts, hide/show controls
+the overlay, and an expandable chart shows twelve forecast candles alongside
+revealed five-minute actuals. Existing five-minute forecasts can appear at the
+same time. Final hour high/low/close errors and flat-price close error are
+separate from all five-minute metrics/touch/location studies. Sample ranges
+are uncalibrated; this new horizon has not been validated as a forecasting gain.
+
+Predictions persist in data/kronos_lab/hour_forecasts.jsonl with raw paths,
+exact aggregated inputs/hash, model/tokenizer revision and sampling settings;
+revealed outcomes persist separately in hour_outcomes. Missing target minutes
+block final scores. User interface reports progress from0/60 through60/60.
+Browser verification caught an equal-start/end date-range boundary issue;
+fixed and added explicit initial-pending regression assertions.
+
+129 offline tests passed before that focused fix; both hour tests passed again
+after it, and chart JavaScript checks passed. A real25-path Base forecast on
+August14 at11:30 was checked visually with the five-minute overlay and detail
+chart, then an independent HTTP replay reached12:30. All60 actual minutes
+matched raw data; forecast file hash stayed unchanged; five-minute metrics
+stayed untouched. Evidence: data/hour_view_verification.json. No browser errors.
+The local8765 server is running the update. Daily work and GitHub publication
+of this new feature have not been performed.
+
+Hourly rollover update: Automatically predict the next hour is enabled by
+default after the first manually issued hourly forecast. Playback/step/reveal
+wait for the next Base forecast at the latest forecast's expiry, preserve its
+path count, select the new overlay, and keep prior forecasts and scores.
+Full-hour/session-close gate remains in force; checkbox opts out. Reveal+5
+uses minute steps while hourly renewal is active so an expiry cannot be skipped.
+Focused Node tests cover expiry, opt-out, no initial forecast, newest forecast,
+duplicate suppression, session close, and actual app.advance orchestration
+crossing12:30 from12:29 to12:34 with one renewal and both forecasts retained.
+
+Browser verification passed: actual replay automatically rolled from the 11:30-12:30 forecast to 12:30-13:30, retained both picker entries, and reported no browser errors. Test replay was paused afterward.
+
+## Webull data-only live connection (2026-09-20)
+
+User authorized connecting the existing WebullTradingScanner official data
+client to Kronos Lab. Live Webull QQQ mode polls completed regular-session
+minute candles every 15 seconds while the browser remains connected, saves
+received data, and supports automatic five-minute and hourly forecasts.
+Recorded Webull sessions can be replayed locally. Stale/closed/error feeds
+block live forecasts; no account/order client, purchases or demo fallback.
+Source identities isolate Webull forecasts from Nasdaq archive/trade features.
+See docs/WEBULL_LIVE.md for controls, storage and limitations.
+
+Official authentication and QQQ M1/M5 retrieval succeeded (1200 bars each).
+The browser correctly identified Sunday's latest Friday data as market-closed.
+A saved September18 Webull session produced real Base hour and five-minute
+forecasts. All 135 offline tests, chart checks and hourly rollover checks pass.
+Revealing five actual Webull minutes populated all five close-error rows and
+the scored count; no browser errors were reported.
+Market-hours arrival, latency and recovery still need forward observation;
+this is not an unattended capture service. These changes are not yet pushed.
+
+
+## Opening-candle replay (2026-09-20)
+
+Historical and recorded Webull replay now start with the 9:30 Eastern candle,
+completed at 9:31 Eastern (8:31 Central), instead of skipping the selected
+lookback. Prior regular-session minute candles warm the five-minute model;
+exchange-calendar grids permit overnight/weekend closures but reject missing
+trading minutes. Live mode uses the same warmup policy. Missing warmup leaves
+replay available while prediction waits for enough valid input. No invented bars.
+Hourly prediction is available at 9:35 when its separate 120 five-minute input
+history is complete. Forecast timestamps retain the real overnight gap.
+
+Cross-session five-minute forecasts use a new prior-session-v1 identity and
+freeze their inputs. Opening-hour/later metadata is recorded and shown on the
+selected forecast; existing pooled replay scores remain exploratory. Legacy
+same-session companion input packages are not created for cross-session windows;
+raw forecast records still retain all inputs and sampled paths. Earlier sealed
+studies and their window contract are unchanged.
+
+138 offline tests and JavaScript chart/rollover tests passed. Real September18
+Webull replay produced a Base forecast at 9:31, an hour forecast at 9:35, and
+five scored minute outcomes. Evidence: data/opening_replay_verification.json.
+
+
+## Streaming quote panel (2026-09-21)
+
+Connect quotes & time-and-sales starts a separate official QQQ MQTT connection.
+The browser refreshes last trade, bid/ask and the latest 60 prints every second.
+In Live Webull mode on the one-minute chart an amber partial forming candle
+shows received trades. It never enters completed inputs, indicators or scoring.
+Provider trade times are Eastern clock strings; side labels are passed through.
+This is observed feed coverage, not a verified consolidated tape.
+
+Sanitized quote/snapshot/tick records append under data/kronos_lab/stream by
+UTC date, with receive time; latest.json is the display snapshot. Closing or
+disconnecting the last panel expires its lease within 30 seconds. This control
+is separate from completed-candle recording. No orders or purchases. Live
+verification received prices, bid/ask, 60 tape rows and forming OHLC. JavaScript
+chart/rollover checks passed. Raw feed records are not deduplicated trade totals.
+
+
+Live-loop correction (September21): forecast exceptions no longer stop candle polling.
+Five-minute and hourly forecast errors are shown separately; candle request
+failures retain the loop and retry after15 seconds with forecasts disabled until
+fresh state arrives. Failed minute forecasts are not repeatedly attempted at the
+same cutoff. Node regression verifies both forecast failures leave liveRunning
+active; hour rollover tests pass. Browser reconnected at10:17 Eastern and
+generated a fresh Base forecast while retaining earlier session forecasts.
+
+
+TSLA live support (September21): Live symbol selector switches candle polling,
+quote/tick stream and chart labels. TSLA records live under webull/TSLA and
+stream/TSLA, with symbol-prefixed forecast identities. QQQ archives remain QQQ.
+Both share the local model; each browser chooses its symbol. Changing symbols
+stops that tab's prior polling; its old quote lease expires within30 seconds.
+Verified official TSLA candles and a real Base five-minute forecast at10:36 NY.
+
+
+NVDA and latency update (September21): NVDA joins QQQ/TSLA with separate feed,
+stream and forecast identities. Chart reset identity includes symbol/provider,
+so switching from QQQ resets its manually retained price scale. Live polling
+now targets minute-close +6 seconds (retaining the5-second completed-bar guard),
+retries missing/stale bars every5 seconds, and waits for the next boundary once
+caught up. Feed cache throttle is4 seconds. Recent TSLA inference was~0.25s;
+creation latency after candle close was7.65–22.46s before this scheduling change.
+Provider publication, request and computation time still add latency; no
+instantaneous forecasting claim. Focused feed and JS polling/chart tests pass.

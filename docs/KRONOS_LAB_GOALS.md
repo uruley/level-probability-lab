@@ -4,6 +4,13 @@ Updated 2026-09-19 from the user's clarified objective.
 
 ## Current priority: forecast reliability by market location
 
+2026-09-20: user also requested a separate one-hour visual forecast. Implemented
+with 120 completed five-minute inputs and twelve forecast candles from Base;
+minute-chart range overlay, ending-close marker and expandable detail chart.
+Record and score this horizon separately; do not infer accuracy from prior
+five-minute studies. Daily forecasts are explicitly deferred. See
+`docs/KRONOS_LAB_APP.md` for the input/scoring contract.
+
 User-approved direction, 2026-09-19. This section supersedes the earlier
 "next milestone" ordering below. It is a roadmap, not a claim that these
 features or a new Scout model are already implemented.
@@ -172,3 +179,10 @@ unscored. Sample spread is not a calibrated confidence guarantee.
 No new data purchase, neural training, paid LLM service, or live subscription
 is authorized by this goals update. Existing acquisition and secret-handling
 safeguards remain in force. The older boundary-probability study remains separate.
+
+September20 update: the user subsequently authorized data-only connection to
+the existing official Webull feed. Completed QQQ candles now support live
+Kronos forecasts and local recording/replay. No account/order access or new
+subscription purchase is included. See [Webull live setup](WEBULL_LIVE.md).
+Observe a market-hours run before declaring live delivery verified; preserve
+source labels and keep exploratory live scores separate from sealed studies.

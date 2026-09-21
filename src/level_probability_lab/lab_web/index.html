@@ -1,42 +1,89 @@
 <!doctype html>
+
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kronos Lab · Historical replay</title><link rel="stylesheet" href="/style.css"></head>
+
 <body>
-<header><div class="brand"><span class="mark">K</span><span>KRONOS <b>LAB</b></span></div><div class="header-right"><span class="dot"></span> LOCAL RESEARCH <span class="divider">/</span><span>QQQ · 1 MINUTE</span></div></header>
-<main>
+
+<header><div class="brand"><span class="mark">K</span><span>KRONOS <b>LAB</b></span></div><div class="header-right"><span class="dot"></span> LOCAL RESEARCH <span class="divider">/</span><span id="headerSymbol">QQQ · 1 MINUTE</span></div></header>
+
+<main><section class="panel" style="padding:20px;margin-bottom:16px"><h3>Live <span id="liveSymbolTitle">QQQ</span> - Webull</h3><label>Live symbol <select id="liveSymbol"><option>QQQ</option><option>TSLA</option><option>NVDA</option></select></label><button id="streamToggle">Connect quotes &amp; time-and-sales</button><p id="streamStatus">Separate live view. Kronos uses completed candles only.</p><strong id="streamPrice"> - </strong><span id="streamQuote"></span><p id="formingInfo" class="hint"></p><div style="max-height:220px;overflow:auto"><table><thead><tr><th>Trade time  -  Eastern</th><th>Price</th><th>Size</th><th>Provider side</th></tr></thead><tbody id="streamTape"></tbody></table></div><p class="hint">Observed Webull prints, not verified full-market volume. The amber forming candle is partial from connection time and never enters forecasts.</p></section>
+
 <div class="intro"><div><div class="eyebrow">THE REPLAY WORKBENCH</div><h1>A little ahead of history.</h1><p>Reveal the market one candle at a time. See where the forecast holds up.</p></div><div class="session-badge"><span class="dot"></span><span id="sessionLabel">Historical session</span></div></div>
+
 <div class="workspace">
+
 <section class="chart-panel panel">
-<div class="chart-heading"><div><span class="symbol">QQQ</span><span class="muted"> Invesco QQQ · Nasdaq prints</span><div class="price-line"><strong id="price">—</strong><span id="change"></span></div></div><div class="clock"><small>REPLAY CLOCK · NEW YORK</small><strong id="clock">—</strong><span id="clockDate">Waiting for session</span></div></div>
+
+<div class="chart-heading"><div><span class="symbol" id="chartSymbol">QQQ</span><span class="muted" id="sourceLabel"> Invesco QQQ · Nasdaq prints</span><div class="price-line"><strong id="price">—</strong><span id="change"></span></div></div><div class="clock"><small>REPLAY CLOCK · NEW YORK</small><strong id="clock">—</strong><span id="clockDate">Waiting for session</span></div></div>
+
 <div class="chart-legend"><span><i class="sw actual"></i>Actual candles</span><span><i class="sw forecast"></i>Forecast path</span><span><i class="sw band"></i>10–90% forecast close bounds</span></div>
+
 <div class="chart-tools">
+
 <div class="chart-tool-row"><label>Chart timeframe<select id="chartTimeframe"><option value="1">1 minute</option><option value="5">5 minutes</option><option value="hourly">1 hour</option><option value="daily">Daily</option></select></label><label>Initial view<select id="chartCount"><option value="60">60 bars</option><option value="120" selected>120 bars</option><option value="240">240 bars</option></select></label><label>Indicators from<select id="indicatorFrame"><option value="hourly">Hourly</option><option value="daily">Daily</option><option value="both">Hourly + daily</option><option value="chart" selected>Chart timeframe</option></select></label><label class="chart-check"><input type="checkbox" id="fitIndicators" checked> Fit indicators</label><button id="chartZoomIn" type="button" aria-label="Zoom in">+</button><button id="chartZoomOut" type="button" aria-label="Zoom out">&#8722;</button><button id="chartReset" type="button">Reset view</button><label class="chart-check"><input type="checkbox" id="chartFollow" checked> Follow replay</label><button id="chartExpand" class="subtle" type="button">Expand chart</button></div>
+
 <div class="chart-tool-row"><span>Moving averages</span><label class="chart-check"><input type="checkbox" data-ma="5">5</label><label class="chart-check"><input type="checkbox" data-ma="10">10</label><label class="chart-check"><input type="checkbox" data-ma="20" checked>20</label><label class="chart-check"><input type="checkbox" data-ma="50">50</label><label class="chart-check"><input type="checkbox" data-ma="100">100</label><label class="chart-check"><input type="checkbox" data-ma="200">200</label><label class="chart-check"><input type="checkbox" id="indicatorBands" checked> Bollinger 20 / 2</label><label class="chart-check"><input type="checkbox" id="frozenLevels"> Frozen forecast levels</label></div>
+
 </div>
+
+<div class="chart-tool-row horizon-tools"><label class="chart-check"><input type="checkbox" id="showHour" checked> One-hour forecast range</label><button id="hourForecast" type="button" disabled>Forecast one hour</button><label class="chart-check"><input type="checkbox" id="autoHour" checked> Automatically predict the next hour</label><label>Inspect hour forecast <select id="hourSelect"><option value="">None yet</option></select></label></div>
+
 <div id="indicatorLegend" class="indicator-legend" aria-live="polite"></div>
+
 <p class="hint">Wheel or pinch to zoom. Drag chart to pan; drag the right price axis to scale. Double-click an axis to reset. <span id="chartViewport"></span></p><p id="chartNotice" class="hint"></p>
-<div class="chart-wrap"><div id="chart" role="region" aria-label="Interactive QQQ chart: wheel to zoom, drag to pan" tabindex="0"></div><div id="tooltip" hidden></div><div id="chartEmpty">Loading local history…</div></div>
+
+<div class="chart-wrap"><div id="chart" role="region" aria-label="Interactive price chart: wheel to zoom, drag to pan" tabindex="0"></div><div id="tooltip" hidden></div><div id="chartEmpty">Loading local history…</div></div>
+
+<section class="hour-summary" aria-label="One-hour forecast"><strong>One-hour outlook · Kronos Base</strong><p id="hourStatus" class="hint">Generate a one-hour forecast at a completed five-minute boundary.</p><div id="hourValues" class="hour-values"></div><p class="hint">Shading spans the median predicted lowest low to highest high over the whole hour. The dot marks the predicted ending close. This is a forecast range, not calibrated confidence.</p><details id="hourDetails"><summary>Show the twelve five-minute forecast candles</summary><div id="hourChart" aria-label="Five-minute detail of the one-hour forecast"></div><p class="hint">Green/red: revealed five-minute candles. Amber: frozen forecast candles. Both charts follow the same replay clock.</p></details></section>
+
 <div class="transport"><div class="transport-buttons"><button id="play" class="primary" disabled>▶ Play</button><button id="step" disabled>Step +1</button><button id="reveal" disabled>Reveal +5</button><button id="reset" class="subtle" disabled>↺ Restart</button></div><label class="speed-label">Pace <select id="speed" aria-label="Playback pace"><option value="1200">1×</option><option value="500">2×</option><option value="150">8×</option></select></label></div>
+
 <div class="progress-row"><div class="progress"><div id="progressFill"></div></div><span id="progressText">0 / 390 candles</span></div>
+
 </section>
+
 <aside class="panel settings"><div class="eyebrow">EXPERIMENT CONTROLS</div><h2>Set the scene</h2>
-<label for="date">Historical session</label><input type="date" id="date" value="2026-08-14"><span class="hint" id="coverage">Reading local coverage…</span>
+
+<label for="sourceMode">Data source</label><select id="sourceMode"><option value="historical">Historical Nasdaq archive</option><option value="live">Live Webull · selected symbol</option><option value="recorded">Recorded Webull sessions</option></select><p class="hint" id="feedStatus">Historical replay.</p><button id="stopLive" class="outline full" hidden>Stop live recording</button>
+
+<label for="date">Session date</label><input type="date" id="date" value="2026-08-14"><span class="hint" id="coverage">Reading local coverage…</span>
+
 <label for="lookback">Completed input candles</label><select id="lookback"><option value="60">60 minutes</option><option value="120" selected>120 minutes</option><option value="240">240 minutes</option></select>
+
 <button id="load" class="outline full" disabled>Load session</button>
+
 <div class="rule"></div><label for="model">Forecast engine</label><select id="model"><option value="base">Kronos Base · 102M</option><option value="small">Kronos Small · 25M</option><option value="saved">Saved Small demo · Aug 14</option></select>
+
 <label for="amountMode">Dollar amount input</label><select id="amountMode"><option value="approximate">Approximate: volume x close</option><option value="trades">Actual trade totals: May-June 2026</option></select><p class="hint">Actual totals use completed Nasdaq trades. Other candle inputs stay the same. Load a May or June 2026 session to compare.</p>
+
 <label for="samples">Sampled future paths</label><select id="samples"><option value="10">10 paths · fast</option><option value="25" selected>25 paths · balanced</option><option value="50">50 paths · richer distribution</option></select>
+
 <button id="forecast" class="primary full" disabled>Forecast next 5 minutes <span>↗</span></button>
-<label class="check"><input id="auto" type="checkbox"> Forecast at every replay step</label>
+
+<label class="check"><input id="auto" type="checkbox"> Forecast each new candle</label>
+
 <p class="hint">Forecasts stay frozen as actual candles arrive. The forecast bounds show model dispersion, not a calibrated confidence guarantee.</p>
+
 <div class="model-status"><span class="dot"></span><span id="engineStatus">Local GPU · loaded on first forecast</span></div></aside>
+
 </div>
+
 <div id="status" class="status" role="status" aria-live="polite">Opening your local replay library.</div>
+
 <section class="metrics"><div class="metric"><small>REVEALED CLOSE ERROR</small><strong id="mae">—</strong><span>Mean absolute error · USD</span></div><div class="metric"><small>FLAT-PRICE BASELINE</small><strong id="baseline">—</strong><span>Last known close held constant</span></div><div class="metric"><small>SCORED PREDICTIONS</small><strong id="scored">0</strong><span>Revealed forecast / horizon pairs</span></div><div class="metric"><small>SELECTED FORECAST</small><strong id="latency">—</strong><span id="latencyNote">Local inference time</span></div></section>
+
 <section class="panel outcomes"><div class="section-heading"><div><div class="eyebrow">FORECAST → REALITY</div><h2>Watch the next five unfold</h2></div><label class="forecast-picker">Inspect forecast<select id="forecastSelect" aria-label="Inspect a saved forecast"><option>No forecast yet</option></select></label></div>
+
 <div class="table-wrap"><h3>Where this Kronos forecast happened</h3><p class="hint" id="contextStatus">Generate a forecast to record its market context.</p><p class="hint">The chart legend names each indicator and timeframe. Chart curves follow the replay clock. Optional dashed lines show levels frozen at the selected forecast. This table always describes that frozen forecast. Distance is price minus level; R is the setup risk distance. Scout is not connected.</p><details><summary>All recorded levels and slopes</summary><table><thead><tr><th>Timeframe / level</th><th>Price</th><th>Distance / R</th><th>Side / movement</th><th>Slope per completed bar</th></tr></thead><tbody id="contextRows"></tbody></table></details><h3>Results by location - this replay</h3><label>Window <select id="locationWindow"><option value="five_minute">Five minutes</option><option value="extended">Up to 60 minutes</option></select></label><p class="hint">Confluence means hourly and daily averages cluster within 0.5R of each other and current price. Rates include all resolved outcomes; unresolved and missing are separate. Overlapping forecasts and mixed settings are exploratory, not independent evidence or a baseline comparison.</p><table><thead><tr><th>Location / reward:risk</th><th>Forecasts / resolved</th><th>Target first</th><th>Stop first</th><th>Neither / expired</th><th>Ambiguous</th><th>Open / missing / no setup</th></tr></thead><tbody id="locationRows"></tbody></table></div>
+
 <div class="table-wrap"><h3>Target before stop · five-minute experiments</h3><p class="hint" id="touchStatus">Generate a forecast to freeze direction and levels.</p><table><thead><tr><th>Reward:risk</th><th>Target / Stop</th><th>Sampled path percentages<br>Target / Stop / Neither / Ambiguous</th><th>Five-minute outcome</th><th>Extended outcome</th></tr></thead><tbody id="touchRows"></tbody></table><h3>Observed rates · this replay</h3><p class="hint">Percentages use resolved setups, including early touches and ambiguous outcomes. Neither is final only after five minutes. Pending, missing and neutral setups are listed separately. Mixed engines/settings are pooled; this is exploratory, not a holdout evaluation.</p><table><thead><tr><th>Reward:risk</th><th>Complete</th><th>Target first</th><th>Stop first</th><th>Neither</th><th>Ambiguous</th><th>Pending / Missing / No setup</th></tr></thead><tbody id="touchSummary"></tbody></table><h3>Extended tracking - up to 60 minutes</h3><p class="hint">Original levels stay fixed until first touch, 60 minutes, or session close. New predictions do not reset earlier setups. Rates use resolved setups, including expired and ambiguous; open setups are excluded. Running rates can favor setups that resolve sooner. These are separate from the five-minute sampled percentages above.</p><table><thead><tr><th>Reward:risk</th><th>Resolved</th><th>Target first</th><th>Stop first</th><th>Expired without touch</th><th>Ambiguous</th><th>Open / Missing / No setup</th></tr></thead><tbody id="extendedSummary"></tbody></table><p class="hint">Same-minute touches of both levels are ambiguous; no trade-tape order resolution yet. Sampled percentages are uncalibrated. Historical Nasdaq touches are not fills or trading returns.</p></div>
+
 <div class="table-wrap"><h3>Five-minute range from reference close <span id="rangeReference">—</span></h3><p id="rangeStatus" class="hint">Generate a forecast to compare its full five-minute range.</p><table><thead><tr><th>Measurement</th><th>Forecast median</th><th>10–90% sampled range</th><th>Actual / so far</th><th>Final absolute error</th></tr></thead><tbody id="rangeRows"></tbody></table><p class="hint">Extremes are calculated across all five candles within each valid sampled path. Sample ranges are not calibrated confidence. Missing minutes prevent a final score.</p></div>
+
 <div class="table-wrap"><table><thead><tr><th>Horizon</th><th>Minute · NY</th><th>Median close</th><th>Sample range</th><th>Actual close</th><th>Absolute error</th></tr></thead><tbody id="forecastRows"><tr><td colspan="6" class="empty-row">Generate a forecast, then reveal the next candles to compare.</td></tr></tbody></table></div>
+
 <div class="table-foot"><span id="forecastNote">Every prediction uses completed candles only.</span><span>Fixed seed · 42</span></div></section>
-<p class="hint chart-credit">TradingView Lightweight Charts™ · Copyright © 2025 TradingView, Inc. <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView</a> · <a href="/vendor/LICENSE-lightweight-charts" target="_blank">Apache 2.0 license</a></p><footer><span><b>RESEARCH ONLY</b> · Historical replay, not a trading signal.</span><span>Nasdaq-only volume · No brokerage connection · No paid data requests</span></footer>
-</main><script src="/vendor/lightweight-charts.js"></script><script src="/chart.js"></script><script src="/app.js"></script></body></html>
+
+<p class="hint chart-credit">TradingView Lightweight Charts™ · Copyright © 2025 TradingView, Inc. <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView</a> · <a href="/vendor/LICENSE-lightweight-charts" target="_blank">Apache 2.0 license</a></p><footer><span><b>RESEARCH ONLY</b> · Historical replay, not a trading signal.</span><span>Source-labelled candles · No order connection · No subscription purchases</span></footer>
+
+</main><script src="/vendor/lightweight-charts.js"></script><script src="/chart.js"></script><script src="/hour.js"></script><script src="/app.js"></script></body></html>

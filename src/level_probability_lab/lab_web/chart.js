@@ -36,7 +36,7 @@ const LabChart = (()=>{
    return j>=0&&finite(source[j][key])?source[j][key]:null;});
  }
 
- let chart=null,actual=null,ghost=null,volume=null,lastKey='',lastCount=0,lastState=null,lastForecast=null;
+ let chart=null,actual=null,ghost=null,volume=null,lastKey='',lastCount=0,lastState=null,lastForecast=null,lastHour=null,hourBand=null,hourEnd=null;
  const overlays=new Map();
  const unix=t=>Math.floor(stamp(t)/1000);
  function candleData(bars){return bars.map(b=>[b.o,b.h,b.l,b.c].every(finite)?
@@ -71,22 +71,31 @@ const LabChart = (()=>{
   window.addEventListener('pointerup',()=>{down=null;});
   $('chart').addEventListener('keydown',e=>{if(e.key==='+'||e.key==='='){e.preventDefault();zoom(.75);}if(e.key==='-'){e.preventDefault();zoom(1.33);}});
   $('chartZoomIn').onclick=()=>zoom(.75);$('chartZoomOut').onclick=()=>zoom(1.33);
-  $('chartReset').onclick=()=>{lastKey='';$('chartFollow').checked=true;chart.priceScale('right').applyOptions({autoScale:true});draw(lastState,lastForecast);};
+  $('chartReset').onclick=()=>{lastKey='';$('chartFollow').checked=true;chart.priceScale('right').applyOptions({autoScale:true});draw(lastState,lastForecast,lastHour);};
   $('chartFollow').onchange=()=>{if($('chartFollow').checked){chart.timeScale().scrollToRealTime();}};
  }
  function zoom(factor){if(!chart)return;const r=chart.timeScale().getVisibleLogicalRange();if(!r)return;document.getElementById('chartFollow').checked=false;const mid=(r.from+r.to)/2,half=Math.max(2,(r.to-r.from)*factor/2);chart.timeScale().setVisibleLogicalRange({from:mid-half,to:mid+half});}
- function draw(state,forecast){
+ function draw(state,forecast,hour){
   if(!state)return;
   const $=id=>document.getElementById(id),L=window.LightweightCharts;
   if(!L){$('chartNotice').textContent='Chart library could not load. Refresh the page; saved forecasts are unaffected.';return;}
-  lastState=state;lastForecast=forecast;if(!chart)create();
+  lastState=state;lastForecast=forecast;lastHour=hour;if(!chart)create();
+  if(formingSeries)formingSeries.setData([]);
   const timeframe=$('chartTimeframe').value,count=Number($('chartCount').value),bars=series(state,timeframe);
-  const key=state.date+'|'+timeframe,reset=key!==lastKey||count!==lastCount;
+  const key=(state.symbol||'QQQ')+'|'+state.provider+'|'+state.date+'|'+timeframe,reset=key!==lastKey||count!==lastCount;
   const range=chart.timeScale().getVisibleLogicalRange();
   chart.applyOptions({timeScale:{timeVisible:timeframe!=='daily',tickMarkFormatter:t=>timeframe==='daily'?fmt(t*1000,true):new Date(t*1000).toLocaleString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})}});
   actual.setData(candleData(bars));volume.setData(bars.map(b=>finite(b.v)&&finite(b.c)?{time:unix(b.t),value:b.v,color:b.c>=b.o?'#84e3bc60':'#e9959960'}:{time:unix(b.t)}));
   const fc=timeframe==='1'&&forecast?forecast.targets.map((t,i)=>({t,o:forecast.candles[i][0],h:forecast.candles[i][1],l:forecast.candles[i][2],c:forecast.candles[i][3],lo:forecast.low[i],hi:forecast.high[i]})):[];
-  ghost.setData(candleData(fc));
+  const showHour=timeframe==='1'&&document.getElementById('showHour')?.checked&&hour;
+  const hourGrid=showHour?Array.from({length:61},(_,i)=>({time:unix(hour.as_of)+i*60})):[];
+  const ghostMap=new Map(hourGrid.map(b=>[b.time,b]));for(const b of candleData(fc))ghostMap.set(b.time,b);
+  ghost.setData([...ghostMap.values()].sort((a,b)=>a.time-b.time));
+  if(!hourBand){hourBand=chart.addSeries(L.BaselineSeries,{baseValue:{type:'price',price:0},topLineColor:'#edbd6e',topFillColor1:'#edbd6e22',topFillColor2:'#edbd6e22',bottomLineColor:'transparent',bottomFillColor1:'transparent',bottomFillColor2:'transparent',priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});
+   hourEnd=chart.addSeries(L.LineSeries,{color:'#ffd391',lineVisible:false,pointMarkersVisible:true,pointMarkersRadius:5,priceLineVisible:false,lastValueVisible:true,title:'1h close'});}
+  const hr=hour?.range;
+  if(showHour&&hr?.high&&hr?.low){hourBand.applyOptions({baseValue:{type:'price',price:hr.low.median}});hourBand.setData([{time:unix(hour.as_of),value:hr.high.median},{time:unix(hour.end),value:hr.high.median}]);}else hourBand.setData([]);
+  hourEnd.setData(showHour?[{time:unix(hour.end),value:hour.median_close}]:[]);
   const legend=$('indicatorLegend');legend.replaceChildren();const used=new Set();
   const fit=$('fitIndicators').checked;
   function line(id,data,color,dashed=false,includeScale=fit){
@@ -96,6 +105,7 @@ const LabChart = (()=>{
    item.setData(data);return item;
   }
   const chosen=[...document.querySelectorAll('[data-ma]:checked')].map(el=>Number(el.dataset.ma));
+  if(showHour&&hr?.low)line('hour-low',[{time:unix(hour.as_of),value:hr.low.median},{time:unix(hour.end),value:hr.low.median}],'#edbd6e',false,true);
   const selection=$('indicatorFrame').value,frames=selection==='both'?['hourly','daily']:[selection==='chart'?timeframe:selection];
   const colors=['#f5c06c','#76cde5','#b9a1ff','#e7a4c3','#a6d779','#f19877'];
   for(const frame of frames){
@@ -116,7 +126,7 @@ const LabChart = (()=>{
    }
   }
   for(const [id,item] of overlays)if(!used.has(id)){chart.removeSeries(item);overlays.delete(id);}
-  const times=new Set([...bars.map(b=>unix(b.t)),...fc.map(b=>unix(b.t))]);
+  const times=new Set([...bars.map(b=>unix(b.t)),...fc.map(b=>unix(b.t)),...hourGrid.map(b=>b.time)]);
   if(times.size){
    if(reset){chart.priceScale('right').applyOptions({autoScale:true});chart.timeScale().setVisibleLogicalRange({from:Math.max(-.5,times.size-count),to:times.size+6});}
    else if(range){const width=range.to-range.from;chart.timeScale().setVisibleLogicalRange($('chartFollow').checked?{from:times.size+6-width,to:times.size+6}:range);}
@@ -125,6 +135,12 @@ const LabChart = (()=>{
   const missing=bars.filter(b=>!finite(b.c)).length;
   $('chartNotice').textContent=`${bars.length} available completed ${timeframe==='hourly'?'hourly':timeframe==='daily'?'daily':timeframe+'-minute'} slots; ${missing} missing. `+(timeframe==='1'?'Blue forecast candles and dashed close bounds are predictions. ':'Forecast candles appear on the 1-minute view. ')+(timeframe==='daily'?'Today appears after session close. ':timeframe==='hourly'?'Full hours start at 9:30 NY; short closing block excluded. ':'')+'Pan through loaded history. Indicator values in the legend are the latest available; use Fit indicators if levels are outside the price view.';
  }
- return {draw,indicators,intraday,asOf,series,candleData};
+ let formingSeries=null;
+ function stream(bar){
+  if(!chart)return;
+  if(!formingSeries)formingSeries=chart.addSeries(window.LightweightCharts.CandlestickSeries,{upColor:'#edbd6e',downColor:'#edbd6e',wickUpColor:'#edbd6e',wickDownColor:'#edbd6e',borderVisible:false,title:'Partial live',priceLineVisible:false});
+  formingSeries.setData(bar?[bar]:[]);
+ }
+ return {draw,stream,indicators,intraday,asOf,series,candleData};
 })();
 if(typeof module!=='undefined')module.exports=LabChart;

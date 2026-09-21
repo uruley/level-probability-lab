@@ -305,3 +305,72 @@ cover all2214 contexts; joins, partitions and450 denominators reconcile. Final
 artifact hashes verified and v1 files unchanged. No July access, fitting,
 inference or download. Next useful evidence would be additional predeclared
 development sessions with unchanged categories, not another threshold widening.
+# One-hour outlook (2026-09-20)
+
+Use **Forecast one hour** above the chart. This separate experiment always uses
+Kronos Base, the selected path count, seed42, and approximate volume-times-close
+amount. Its input is 120 completed five-minute regular-session candles spanning
+recent sessions; its output is twelve five-minute candles. The main chart can
+remain in one-minute candles. The five-minute engine/lookback/amount controls
+do not change this hourly input contract.
+
+**Automatically predict the next hour** is on by default. Generate the first
+hour forecast, then Play, Step +1 or Reveal +5 will issue the next forecast when
+the latest hour ends, using that forecast's path count. Earlier forecasts and
+their final scores remain in the hour picker. Playback waits for inference;
+it does not use future candles or create duplicate forecasts each minute.
+Uncheck the option to stop automatic renewal. No renewal occurs when a full
+hour cannot fit before regular-session close. Selecting an older forecast for
+inspection does not change the renewal schedule.
+
+Forecasts are available on completed five-minute boundaries with a full hour
+remaining before regular-session close. Missing input buckets are not skipped.
+The first dates in local history may lack enough prior candles.
+
+Amber shading spans median path-low to median path-high for the full hour;
+the amber dot marks median ending close. These are different summary statistics,
+not a single sampled path or a calibrated confidence band. Invalid OHLC paths
+are excluded from range summaries; raw samples remain saved. Display candle
+repairs are counted separately. The overlay can be hidden, and an expandable
+detail chart shows the twelve five-minute forecast candles alongside revealed
+five-minute actual candles. The overlay appears on the one-minute chart.
+
+Actual high/low updates as minutes are revealed. Final high/low/ending-close
+errors and a flat-price ending-close baseline appear after all 60 minutes.
+Missing elapsed minutes prevent a final score. These results never enter the
+existing five-minute MAE or touch statistics. Inspect earlier hour forecasts
+with the separate dropdown; new forecasts do not reset them.
+
+Local append-only predictions: `data/kronos_lab/hour_forecasts.jsonl`.
+Separate immutable outcome snapshots: `data/kronos_lab/hour_outcomes/`.
+This is a new, unevaluated forecast horizon; previous location studies do not
+validate it. Daily forecasting is deferred at the user's request.
+
+## Webull connection
+
+The lab also supports live completed QQQ candles and locally recorded Webull
+sessions. See [Webull live setup and limits](WEBULL_LIVE.md). Keep the browser
+connected to record; market-closed and stale feeds block live prediction.
+
+
+## Opening-candle replay (2026-09-20)
+
+Historical and recorded Webull replay now start with the 9:30 Eastern candle,
+completed at 9:31 Eastern (8:31 Central), instead of skipping the selected
+lookback. Prior regular-session minute candles warm the five-minute model;
+exchange-calendar grids permit overnight/weekend closures but reject missing
+trading minutes. Live mode uses the same warmup policy. Missing warmup leaves
+replay available while prediction waits for enough valid input. No invented bars.
+Hourly prediction is available at 9:35 when its separate 120 five-minute input
+history is complete. Forecast timestamps retain the real overnight gap.
+
+Cross-session five-minute forecasts use a new prior-session-v1 identity and
+freeze their inputs. Opening-hour/later metadata is recorded and shown on the
+selected forecast; existing pooled replay scores remain exploratory. Legacy
+same-session companion input packages are not created for cross-session windows;
+raw forecast records still retain all inputs and sampled paths. Earlier sealed
+studies and their window contract are unchanged.
+
+138 offline tests and JavaScript chart/rollover tests passed. Real September18
+Webull replay produced a Base forecast at 9:31, an hour forecast at 9:35, and
+five scored minute outcomes. Evidence: data/opening_replay_verification.json.

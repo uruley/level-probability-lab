@@ -32,7 +32,9 @@ but lacks stable prior-month confirmation; no Scout/location rule promoted.
 
 ## Safety limits (do not violate)
 
-- No brokerage APIs, live orders, or “this is profitable” claims.
+- No account/order APIs, live orders, or “this is profitable” claims. User
+  authorized data-only official Webull QQQ access on 2026-09-20; see
+  docs/WEBULL_LIVE.md. No synthetic/unofficial fallback or subscription purchase.
 - No Databento `timeseries.get_range` / batch job unless the user approved the
   **exact** request and a positive spending cap after a quote.
 - Default: `download_enabled=false`, `spending_cap_usd=0`.
