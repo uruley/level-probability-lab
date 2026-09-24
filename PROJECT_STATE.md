@@ -1,5 +1,15 @@
 # PROJECT_STATE.md
 
+2026-09-24: proposed a separate River online-learning layer beside Kronos.
+Kronos remains the GPU forecasting engine; River is planned as a lightweight
+CPU-side reliability/meta-model that predicts how trustworthy each Kronos
+horizon is from prediction-time context, then learns only after the matching
+future outcome resolves. First scope: Kronos output + OHLCV/VWAP/volume/
+volatility/time-of-day context, strict predict -> score -> learn ordering,
+durable replay, calibration metrics and no live trading. Later branches may add
+time-and-sales/liquidity features and additional independent forecasters. This
+is design only; River is not implemented. See `docs/RIVER_ONLINE_LEARNING.md`.
+
 2026-09-24: user requested a rolling 50-minute forecast on each completed
 live minute. Browser now runs both five- and fifty-minute predictions per new
 clock, with duplicate guards and failure isolation. Saved paths remain immutable;
