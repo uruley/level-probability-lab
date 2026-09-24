@@ -15,3 +15,12 @@ assert.deepEqual(chart.asOf(source,[{end:'2026-05-01T14:29Z'},{end:'2026-05-01T1
 console.log('Chart aggregation, missing bars, formulas and as-of joins pass.');
 
 assert.deepEqual(chart.candleData([{t:'2026-05-01T13:30Z',o:100,h:102,l:99,c:101},{t:'2026-05-01T13:31Z',o:null,h:null,l:null,c:null}]),[{time:1777642200,open:100,high:102,low:99,close:101},{time:1777642260}]);
+const vw=chart.sessionVwap([{h:100,l:100,c:100,v:1},{h:102,l:102,c:102,v:3}]);
+assert.equal(vw[1].vwap,101.5);
+assert.equal(chart.sessionVwap([{h:100,l:100,c:100,v:1},{h:null,l:null,c:null,v:null},{h:102,l:102,c:102,v:3}])[2].vwap,null);
+assert.equal(chart.indicators(Array.from({length:200},()=>({c:123})))[199].sma200,123);
+assert.equal(chart.indicators(Array.from({length:199},()=>({c:123})))[198].sma200,null);
+const prior=Array.from({length:199},(_,i)=>({t:new Date(start-86400000+i*60000).toISOString(),o:100,h:100,l:100,c:100,v:1}));
+const warm=chart.intraday({...state,chart_warmup:prior},1);
+assert.equal(warm[0].sma200,100.005);
+assert.equal(chart.sessionVwap(warm)[0].vwap,(bars[0].h+bars[0].l+bars[0].c)/3);

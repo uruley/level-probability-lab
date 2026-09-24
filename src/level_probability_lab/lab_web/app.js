@@ -1,5 +1,36 @@
 'use strict';
 
+// Separate polling never waits for the Jev request worker.
+let jevPolling=false;
+async function refreshJev(enabled){
+ if(jevPolling||!sessionId)return;
+ jevPolling=true;
+ try{
+  const body={session_id:sessionId};if(typeof enabled==='boolean')body.enabled=enabled;
+  const data=await api('jev',body);
+  document.getElementById('jevToggle').checked=data.enabled;
+  document.getElementById('jevToggle').disabled=!data.supported;
+  document.getElementById('jevStatus').textContent=`${data.supported?'Live QQQ observer':'Select live QQQ to enable'} · ${data.requests} requests · estimated $${data.estimated_usd.toFixed(5)} · reserved $${data.reserved_usd.toFixed(3)} / $${data.cap_usd.toFixed(2)} cap`;
+  const target=document.getElementById('jevRows');target.replaceChildren();
+  for(const r of [...data.rows].reverse()){
+   const tr=document.createElement('tr');
+   const scores=p=>p?['bull','neutral','bear'].map(k=>`${k} ${(100*p[k]).toFixed(1)}%`).join(' / '):'Unavailable';
+   for(const value of [time(r.cutoff),scores(r.kronos),r.status==='ready'?scores(r.result.scores):r.status,r.outcome]){
+    const td=document.createElement('td');td.textContent=value;tr.appendChild(td);
+   }
+   target.appendChild(tr);
+  }
+ }catch(e){document.getElementById('jevStatus').textContent='Jev observer: '+e.message;}
+ finally{jevPolling=false;}
+}
+window.addEventListener('DOMContentLoaded',()=>{
+ const panel=document.createElement('section');panel.className='table-wrap';
+ panel.innerHTML='<h3>Jev live observer · experimental scores</h3><label><input type="checkbox" id="jevToggle"> Enable live QQQ Jev ($0.25 daily session cap)</label><p class="hint">Bull / neutral / bear: five-minute close return above +0.10%, within ±0.10%, or below −0.10%. Scores are not calibrated probabilities. Available context is sent to TypeSafe after each new Kronos forecast. Off stops new requests; an in-flight request may finish. Conservative reservations may stop calls before the estimated spend reaches the cap.</p><p id="jevStatus">Load live QQQ to enable.</p><table><thead><tr><th>Forecast · NY</th><th>Kronos</th><th>Jev</th><th>Actual after five minutes</th></tr></thead><tbody id="jevRows"></tbody></table>';
+ document.querySelector('main').appendChild(panel);
+ document.getElementById('jevToggle').onchange=e=>refreshJev(e.target.checked);
+ setInterval(()=>refreshJev(),5000);
+});
+
 const $ = id => document.getElementById(id);
 
 let token='', sessionId='', state=null, selected='', busy=false, playing=false, timer=null, catalog=null;
@@ -8,7 +39,7 @@ let plotted=[];
 
 let selectedHour='';
 
-let liveTimer=null,liveRunning=false,liveLastForecast='',recordedDates=[];
+let liveTimer=null,liveRunning=false,liveLastForecast='',liveLastLongForecast='',recordedDates=[];
 
 function stopLive(){liveRunning=false;clearTimeout(liveTimer);liveTimer=null;controls();}
 
@@ -22,25 +53,25 @@ function message(text,error=false){$('status').textContent=text;$('status').clas
 
 async function api(path,body){const r=await fetch('/api/'+path,body?{method:'POST',headers:{'Content-Type':'application/json','X-Lab-Token':token},body:JSON.stringify(body)}:{});const data=await r.json();if(!r.ok)throw new Error(data.error||'Request failed');return data}
 
-function controls(){$('autoHour').disabled=busy;$('hourForecast').disabled=busy||!state||!state.can_hour_forecast;$('hourSelect').disabled=busy||!state;['load','date','lookback','model','amountMode','samples','reset'].forEach(id=>$(id).disabled=busy||!catalog);$('forecast').disabled=busy||!state||!state.can_forecast;['step','reveal'].forEach(id=>$(id).disabled=busy||!state||state.done);$('play').disabled=!state||state.done||(busy&&!playing);$('play').textContent=playing?'Ⅱ Pause':'▶ Play';$('samples').disabled=busy||$('model').value==='saved';$('auto').disabled=busy;$('sourceMode').disabled=busy;$('liveSymbol').disabled=busy;$('stopLive').hidden=!liveRunning;$('stopLive').disabled=busy;if(state?.mode==='live'){['play','step','reveal'].forEach(id=>$(id).disabled=true);if(!liveRunning){$('forecast').disabled=true;$('hourForecast').disabled=true;}}$('date').disabled=busy||$('sourceMode').value==='live';}
+function controls(){$('stackFivePredict').disabled=busy||!state?.can_hour_forecast;$('autoHour').disabled=busy;$('hourForecast').disabled=busy||!state||!state.can_hour_forecast;$('hourSelect').disabled=busy||!state;['load','date','lookback','model','amountMode','samples','reset'].forEach(id=>$(id).disabled=busy||!catalog);$('forecast').disabled=busy||!state||!state.can_forecast;['step','reveal'].forEach(id=>$(id).disabled=busy||!state||state.done);$('play').disabled=!state||state.done||(busy&&!playing);$('play').textContent=playing?'Ⅱ Pause':'▶ Play';$('samples').disabled=busy||$('model').value==='saved';$('auto').disabled=busy;$('sourceMode').disabled=busy;$('liveSymbol').disabled=busy;$('stopLive').hidden=!liveRunning;$('stopLive').disabled=busy;if(state?.mode==='live'){['play','step','reveal'].forEach(id=>$(id).disabled=true);if(!liveRunning){$('forecast').disabled=true;$('hourForecast').disabled=true;}}$('date').disabled=busy||$('sourceMode').value==='live';}
 
 function pause(){playing=false;clearTimeout(timer);timer=null;controls()}
 
 async function action(fn){if(busy)return;busy=true;controls();try{await fn()}catch(e){pause();message(e.message,true)}finally{busy=false;controls()}}
 
-function accept(data){state=data;if(data.session_id)sessionId=data.session_id;if(data.hour_forecast_id)selectedHour=data.hour_forecast_id;if(data.forecast_id)selected=data.forecast_id;render()}
+function accept(data){state=data;if(data.session_id)sessionId=data.session_id;if(data.hour_forecast_id)selectedHour=data.hour_forecast_id;if(!state.hour_forecasts?.some(f=>f.id===selectedHour))selectedHour=HourView.latest(state)?.id||'';if(data.forecast_id)selected=data.forecast_id;render()}
 
-async function load(){pause();stopLive();if($('sourceMode').value==='live'){await startLive();return;}await action(async()=>{message('Loading the selected session from local history…');if(!($('sourceMode').value==='recorded'?recordedDates:catalog.dates).includes($('date').value))throw new Error('Choose an available trading session between '+catalog.dates[0]+' and '+catalog.dates.at(-1)+'.');const data=await api('session',{symbol:$('liveSymbol').value,date:$('date').value,lookback:Number($('lookback').value),recorded:$('sourceMode').value==='recorded'});sessionId=data.session_id;selected='';selectedHour='';accept(data);message(data.missing_minutes?`${data.missing_minutes} missing session minutes. Gaps stay visible; forecasts require contiguous input.`:'Replay starts with the 9:30 Eastern opening candle, completed at 9:31 (8:31 Central). Prior-session warmup is used when available. '+(data.can_forecast?'Ready to forecast.':data.reason));})}
+async function load(){pause();stopLive();if($('sourceMode').value==='live'){await startLive();return;}await action(async()=>{message('Loading the selected session from local history…');if(!($('sourceMode').value==='recorded'?recordedDates:catalog.dates).includes($('date').value))throw new Error('Choose an available trading session between '+catalog.dates[0]+' and '+catalog.dates.at(-1)+'.');const data=await api('session',{symbol:$('liveSymbol').value,date:$('date').value,lookback:Number($('lookback').value),recorded:$('sourceMode').value==='recorded'});sessionId=data.session_id;selected='';selectedHour='';accept(data);await StackView.refresh(sessionId,state,api);message(data.missing_minutes?`${data.missing_minutes} missing session minutes. Gaps stay visible; forecasts require contiguous input.`:'Replay begins at the first recorded session candle. Prior-session warmup is used when available. '+(data.can_forecast?'Ready to forecast.':data.reason));})}
 
 async function forecast(){message($('model').value==='saved'?'Retrieving the frozen Small forecast…':'Generating five candles on the local GPU. First use also loads the model…');accept(await api('forecast',{session_id:sessionId,model:$('model').value,samples:Number($('samples').value),amount_mode:$('amountMode').value}));const f=state.forecasts.find(f=>f.id===selected);message(`${f.model} [${f.amount_mode==='trades'?'Actual trade totals':'Approximate amount'}] forecast frozen · ${f.samples} paths · ${f.cached?'saved result':f.seconds.toFixed(2)+'s inference'}. Reveal the next candles to compare.`)}
 
 async function forecastHour(samples=Number($('samples').value)){
 
- message('Generating a one-hour outlook with Kronos Base…');
+ message('Generating a 50-minute outlook with Kronos Base…');
 
  accept(await api('hour-forecast',{session_id:sessionId,samples}));
 
- message('One-hour forecast saved. Earlier forecasts and their scores stay available.');
+ message('50-minute forecast saved. Earlier forecasts and their scores stay available.');
 
 }
 
@@ -50,13 +81,14 @@ async function advance(count){await action(async()=>{
 
  // Smaller steps preserve the exact rollover boundary even during Reveal +5.
 
- const chunks=HourView.advanceChunks(state,count,$('autoHour').checked);
+ const chunks=$('stackAuto').checked?Array(count).fill(1):HourView.advanceChunks(state,count,$('autoHour').checked);
 
  let rolled=false;
 
  for(const chunk of chunks){
 
   accept(await api('step',{session_id:sessionId,count:chunk}));
+  await StackView.refresh(sessionId,state,api);
 
   const samples=HourView.rolloverSamples(state,$('autoHour').checked);
 
@@ -64,7 +96,7 @@ async function advance(count){await action(async()=>{
 
  }
 
- message(state.done?'Session complete. Scores include only the forecasts you issued.':rolled?'Next one-hour forecast saved. Earlier forecasts and scores remain in the hour picker.':state.can_forecast?'Replay advanced. Earlier forecasts remain frozen.':state.reason);
+ message(state.done?'Session complete. Scores include only the forecasts you issued.':rolled?'Next 50-minute forecast saved. Earlier forecasts and scores remain in the hour picker.':state.can_forecast?'Replay advanced. Earlier forecasts remain frozen.':state.reason);
 
 });if(state?.done)pause()}
 
@@ -94,7 +126,7 @@ function draw(){if(state)LabChart.draw(state,state.forecasts.find(f=>f.id===sele
 
 new ResizeObserver(draw).observe($('chart'));
 
-for(const id of ['chartTimeframe','chartCount','indicatorFrame','fitIndicators','indicatorBands','frozenLevels'])$(id).onchange=draw;
+for(const id of ['chartTimeframe','chartCount','indicatorFrame','fitIndicators','indicatorBands','frozenLevels','sessionVwap','minuteSma200'])$(id).onchange=draw;
 
 for(const input of document.querySelectorAll('[data-ma]'))input.onchange=draw;
 
@@ -164,7 +196,7 @@ function renderContext(f){
 
  const ctx=f?.market_context;
 
- $('contextStatus').textContent=ctx?`Frozen at ${time(ctx.as_of)} NY. ${ctx.location_group.replaceAll('_',' ')}; ${ctx.confluence_pairs.length} hourly/daily average pairs. SMA20 trend agreement: ${ctx.trend_agreement}. Kronos: ${ctx.kronos_direction}. Near = within 0.5R. Completed regular-session bars only.`:'Generate a forecast to record its market context.';
+ $('contextStatus').textContent=ctx?`Frozen at ${time(ctx.as_of)} NY. ${ctx.location_group.replaceAll('_',' ')}; ${ctx.confluence_pairs.length} hourly/daily average pairs. SMA20 trend agreement: ${ctx.trend_agreement}. Kronos: ${ctx.kronos_direction}. Near = within 0.5R. Completed candles in the configured session.`:'Generate a forecast to record its market context.';
 
  if(ctx)for(const v of ctx.levels)add(rows,[v.timeframe+' '+v.name,money(v.value),money(v.distance)+' / '+(v.distance_r==null?'unavailable':v.distance_r.toFixed(2)+'R'),v.value==null?'Insufficient or missing history':v.side+' / '+v.approach,v.slope==null?'--':money(v.slope)]);
 
@@ -188,6 +220,7 @@ $('hourSelect').onchange=()=>{selectedHour=$('hourSelect').value;render()};
 
 $('showHour').onchange=draw;
 
+$('focusFifty').onclick=()=>HourView.detail(state,state?.hour_forecasts?.find(f=>f.id===selectedHour),true);
 $('hourDetails').ontoggle=()=>HourView.detail(state,state?.hour_forecasts?.find(f=>f.id===selectedHour));
 
 
@@ -199,9 +232,9 @@ async function liveForecasts(){
   liveLastForecast=state.clock;
   try{await forecast();}catch(e){warnings.push('Five-minute forecast: '+e.message);}
  }
- const due=HourView.rolloverSamples(state,$('autoHour').checked);
- if(state.can_hour_forecast&&$('autoHour').checked&&(!state.hour_forecasts.length||due!==null)){
-  try{await forecastHour(due??Number($('samples').value));}catch(e){warnings.push('Hour forecast: '+e.message);}
+ if(state.can_hour_forecast&&$('autoHour').checked&&state.clock!==liveLastLongForecast){
+  liveLastLongForecast=state.clock;
+  try{await forecastHour(Number($('samples').value));}catch(e){warnings.push('50-minute forecast: '+e.message);}
  }
  return warnings.join(' | ');
 }
@@ -211,11 +244,11 @@ async function startLive(){
 
   try{message('Connecting to the official Webull data feed…');$('amountMode').value='approximate';if($('model').value==='saved')$('model').value='base';
 
-  selected='';selectedHour='';liveLastForecast='';
+  selected='';selectedHour='';liveLastForecast='';liveLastLongForecast='';
 
   accept(await api('live',{symbol:$('liveSymbol').value,lookback:Number($('lookback').value)}));liveRunning=true;$('auto').checked=true;
 
-  const warning=await liveForecasts();message(warning||state.live_info.message,!!warning);
+  await StackView.refresh(sessionId,state,api);const warning=await liveForecasts();message(warning||state.live_info.message,!!warning);
 
   }catch(e){stopLive();throw e;}
 
@@ -231,7 +264,7 @@ async function liveTick(){
 
  if(busy){liveTimer=setTimeout(liveTick,1000);return;}
 
- await action(async()=>{try{accept(await api('live',{symbol:$('liveSymbol').value,lookback:Number($('lookback').value)}));const warning=await liveForecasts();message(warning||state.live_info.message,!!warning);}catch(e){if(state){state.can_forecast=false;state.can_hour_forecast=false;}$('feedStatus').textContent='Candle update failed; retrying shortly: '+e.message;message($('feedStatus').textContent,true);}});
+ await action(async()=>{try{accept(await api('live',{symbol:$('liveSymbol').value,lookback:Number($('lookback').value)}));await StackView.refresh(sessionId,state,api);const warning=await liveForecasts();message(warning||state.live_info.message,!!warning);}catch(e){if(state){state.can_forecast=false;state.can_hour_forecast=false;}$('feedStatus').textContent='Candle update failed; retrying shortly: '+e.message;message($('feedStatus').textContent,true);}});
 
  if(liveRunning)liveTimer=setTimeout(liveTick,livePollDelay());
 
@@ -245,7 +278,7 @@ $('sourceMode').onchange=async()=>{
 
  $('load').textContent=mode==='live'?'Connect Webull':mode==='recorded'?'Load Webull recording':'Load session';
 
- $('feedStatus').textContent=mode==='live'?'Official QQQ completed candles, checked after each minute closes while connected. New candles trigger forecasts; regular session only.':mode==='recorded'?'Replay locally recorded Webull candles.':'Historical Nasdaq replay.';
+ $('feedStatus').textContent=mode==='live'?'Official QQQ completed candles, checked after each minute closes while connected. New candles trigger forecasts; premarket + regular hours (4:00 AM Eastern to close).':mode==='recorded'?'Replay locally recorded Webull candles.':'Historical Nasdaq replay.';
 
  if(mode==='recorded')await action(async()=>{recordedDates=(await api('recordings',{symbol:$('liveSymbol').value})).dates;if(recordedDates.length){$('date').min=recordedDates[0];$('date').max=recordedDates.at(-1);$('date').value=recordedDates.at(-1);}else message('No Webull recordings yet. Connect Webull first.');});
 
@@ -259,7 +292,7 @@ $('sourceMode').onchange=async()=>{
 
 let quoteActive=false,quoteTimer=null;
 
-$('streamToggle').onclick=()=>{quoteActive=!quoteActive;$('streamToggle').textContent=quoteActive?'Disconnect quotes & time-and-sales':'Connect quotes & time-and-sales';if(quoteActive)quotePoll();else{clearTimeout(quoteTimer);LabChart.stream(null);$('streamStatus').textContent='Disconnected. Recording stops within 30 seconds unless another tab is connected.';}};
+$('streamToggle').onclick=()=>{quoteActive=!quoteActive;$('streamToggle').textContent=quoteActive?'Disconnect quotes & time-and-sales':'Connect quotes & time-and-sales';if(quoteActive)quotePoll();else{clearTimeout(quoteTimer);LabChart.stream(null);HourView.stream(null);$('streamStatus').textContent='Disconnected. Recording stops within 30 seconds unless another tab is connected.';}};
 
 async function quotePoll(){
 
@@ -269,13 +302,14 @@ async function quotePoll(){
 
  $('streamPrice').textContent=money(q.price);$('streamQuote').textContent=`  -  Bid ${money(q.bid)} / Ask ${money(q.ask)}`;
 
- $('formingInfo').textContent=q.forming?'Partial forming candle  -  '+new Date(q.forming.time*1000).toLocaleTimeString('en-US',{timeZone:'America/New_York'})+' Eastern  -  shown on live 1-minute chart only':'';
+ $('formingInfo').textContent=q.forming?'Partial forming candle  -  '+new Date(q.forming.time*1000).toLocaleTimeString('en-US',{timeZone:'America/New_York'})+' Eastern  -  shown on both live one-minute charts':'';
 
  const tape=$('streamTape');tape.replaceChildren();for(const t of (q.ticks||[]).slice().reverse()){const tr=document.createElement('tr');let stamp=Number(t.time);const d=Number.isFinite(stamp)?new Date(stamp>1e12?stamp:stamp*1000):new Date(t.time);for(const v of [(/^\d{2}:\d{2}:\d{2}$/.test(t.time)?t.time:d.toLocaleTimeString('en-US',{timeZone:'America/New_York'})),money(t.price),t.size,t.side]){const td=document.createElement('td');td.textContent=v;tr.append(td)}tape.append(tr)}
 
- LabChart.stream(!q.stale&&q.forming?.time===Math.floor(Date.now()/60000)*60&&state?.mode==='live'&&$('chartTimeframe').value==='1'?q.forming:null);
+ const liveBar=!q.stale&&q.forming?.time===Math.floor(Date.now()/60000)*60&&state?.mode==='live'&&state.symbol===symbol?q.forming:null;
+ LabChart.stream($('chartTimeframe').value==='1'?liveBar:null);HourView.stream(liveBar);
 
- }catch(e){$('streamStatus').textContent='Stream unavailable: '+e.message;}
+ }catch(e){LabChart.stream(null);HourView.stream(null);$('streamStatus').textContent='Stream unavailable: '+e.message;}
 
  if(quoteActive)quoteTimer=setTimeout(quotePoll,1000);
 
@@ -283,7 +317,7 @@ async function quotePoll(){
 
 
 $('liveSymbol').onchange=async()=>{
- stopLive();pause();quoteActive=false;clearTimeout(quoteTimer);LabChart.stream(null);
+ stopLive();pause();quoteActive=false;clearTimeout(quoteTimer);LabChart.stream(null);HourView.stream(null);
  $('streamTape').replaceChildren();$('streamPrice').textContent='—';$('streamQuote').textContent='';$('formingInfo').textContent='';
  $('liveSymbolTitle').textContent=$('liveSymbol').value;
  $('sourceMode').value='live';$('load').textContent='Connect Webull';
@@ -295,3 +329,42 @@ function livePollDelay(){
  if(now<readyAt)return readyAt-now;
  return state?.clock&&Date.parse(state.clock)>=boundary?readyAt+60000-now:5000;
 }
+
+$('stackFivePredict').onclick=()=>action(forecastHour);
+$('stackHourPredict').onclick=()=>StackView.refresh(sessionId,state,api,true);
+$('stackHourSelect').onchange=StackView.select;
+
+
+// Saved local review: this endpoint never starts a feed or model.
+let forwardBusy=false;
+async function refreshForward(){
+ if(forwardBusy||!catalog)return;forwardBusy=true;
+ const money=x=>x==null?'—':'$'+x.toFixed(4);
+ const stamp=x=>x?new Date(x).toLocaleString('en-US',{timeZone:'America/New_York',hour12:false}):'—';
+ const cells=(parent,values)=>{const tr=document.createElement('tr');for(const v of values){const td=document.createElement('td');td.textContent=v;tr.append(td);}parent.append(tr);return tr;};
+ try{
+  const d=await api('forward-review',{symbol:$('reviewSymbol').value,date:$('reviewDate').value||null});
+  const picker=$('reviewDate');picker.replaceChildren();picker.add(new Option('Latest recorded session',''));for(const day of d.dates.slice().reverse())picker.add(new Option(day,day));if(forwardChosenDate)picker.value=forwardChosenDate;
+  $('reviewStatus').textContent=`${d.symbol} · ${d.date||'No session'} · ${d.status} · Latest completed candle: ${stamp(d.latest_candle)} NY · Last forecast saved: ${stamp(d.latest_forecast)} NY · Missing elapsed minutes: ${d.missing_minutes??'unknown'}`;
+  const daily=$('reviewDaily');daily.replaceChildren();
+  for(const r of d.daily){cells(daily,[r.settings,`${r.scored} / ${r.total}`,money(r.close_error),money(r.baseline_error),money(r.high_error)+' / '+money(r.low_error),`${r.pending} pending / ${r.incomplete} incomplete / ${r.late_or_unknown} late or unknown`]);
+   for(const t of r.touch){const c=t.counts;cells(daily,[`Target/stop ${t.ratio}:1`,`${t.completed} resolved`,`${c.target_first} target first`,`${c.stop_first} stop first`,`${c.neither} neither / ${c.ambiguous} ambiguous`,`${c.pending} pending / ${c.incomplete} incomplete / ${c.no_setup} no setup`]);}
+  }
+  if(!d.daily.length)cells(daily,['No saved five-minute forecasts for this symbol/session.']);
+  const rows=$('reviewRows');rows.replaceChildren();
+  for(const r of d.rows){const tr=cells(rows,[stamp(r.origin),r.status+(r.prospective?'':' · late/unknown'),money(r.close_error)+' / '+money(r.baseline_error),money(r.high_error)+' / '+money(r.low_error),r.context?`VWAP ${money(r.context.session_vwap_approx)} · SMA200 ${money(r.context.sma200)}`:'Not saved with this forecast']);
+   const td=document.createElement('td'),details=document.createElement('details'),head=document.createElement('summary');head.textContent='Predicted vs actual';details.append(head);
+   const table=document.createElement('table');cells(table,['Target · NY','Predicted close','Actual close']);for(const m of r.minutes)cells(table,[stamp(m.time),money(m.predicted),money(m.actual)]);
+   cells(table,['Five-minute high',money(r.predicted_high),money(r.actual_high)]);cells(table,['Five-minute low',money(r.predicted_low),money(r.actual_low)]);
+   for(const t of r.touch_outcomes)cells(table,[`${t.ratio}:1`,t.outcome||t.status]);details.append(table);td.append(details);tr.append(td);
+  }
+ }catch(e){$('reviewStatus').textContent='Recording review unavailable: '+e.message;}finally{forwardBusy=false;}
+}
+let forwardChosenDate='';
+window.addEventListener('DOMContentLoaded',()=>{
+ const panel=document.createElement('section');panel.className='table-wrap';panel.id='forwardReview';
+ panel.innerHTML='<h2>Recording & five-minute results</h2><p class="hint">Saved Webull forecasts · reviewed development data, not an untouched final test. Refreshing this panel does not start recording. Times are New York.</p><label>Symbol <select id="reviewSymbol"><option>QQQ</option><option>TSLA</option><option>NVDA</option><option>SPCX</option><option>AMZN</option><option>GOOGL</option></select></label> <label>Session <select id="reviewDate"><option value="">Latest recorded session</option></select></label> <button id="reviewRefresh">Refresh saved results</button><p id="reviewStatus">Checking saved recordings…</p><h3>Daily results · five-minute horizon</h3><p class="hint">Close MAE compares the +5 close with keeping the last price unchanged. High/low MAE uses the next five candles. Settings stay separate. Late/unknown forecasts are excluded from scored totals. Touch counts can resolve before five minutes; overlapping forecasts are not independent trades.</p><table><thead><tr><th>Engine / settings</th><th>Scored / saved</th><th>Close MAE</th><th>Flat-price MAE</th><th>High / low MAE</th><th>Coverage</th></tr></thead><tbody id="reviewDaily"></tbody></table><h3>Saved forecasts · latest 100</h3><p class="hint">VWAP is a frozen candle-based approximation. Missing historical context stays unavailable. Target/stop outcomes use candles; same-minute double touches remain ambiguous.</p><table><thead><tr><th>Origin · NY</th><th>Status</th><th>Close / baseline error</th><th>High / low error</th><th>Frozen context</th><th>Forecast vs actual</th></tr></thead><tbody id="reviewRows"></tbody></table>';
+ document.querySelector('main').append(panel);
+ $('reviewSymbol').onchange=()=>{forwardChosenDate='';$('reviewDate').value='';refreshForward();};$('reviewDate').onchange=()=>{forwardChosenDate=$('reviewDate').value;refreshForward();};$('reviewRefresh').onclick=refreshForward;
+ setInterval(refreshForward,15000);refreshForward();
+});

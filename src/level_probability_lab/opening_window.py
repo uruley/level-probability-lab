@@ -4,11 +4,13 @@ import pandas as pd
 from .calendar import session_schedule
 
 
-def session_window(bars, last, lookback):
+def session_window(bars, last, lookback, premarket=False):
     last = pd.Timestamp(last)
     schedule = session_schedule(str((last-pd.Timedelta(days=14)).date()), str(last.date()))
     grid = pd.DatetimeIndex([t for r in schedule.itertuples()
-                            for t in pd.date_range(r.market_open, r.market_close, freq='min', inclusive='left')
+                            for t in pd.date_range(
+                                (r.market_open.tz_convert('America/New_York').normalize()+pd.Timedelta(hours=4)).tz_convert('UTC') if premarket else r.market_open,
+                                r.market_close, freq='min', inclusive='left')
                             if t <= last])[-lookback:]
     available = bars.loc[bars.bar_start <= last].set_index('bar_start')
     if available.index.has_duplicates:

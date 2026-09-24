@@ -15,6 +15,14 @@ const LabChart = (()=>{
    return result;
   });
  }
+ function sessionVwap(bars){
+  let dollars=0,shares=0,valid=true;
+  return bars.map(b=>{
+   valid=valid&&[b.h,b.l,b.c,b.v].every(finite)&&b.v>=0;
+   if(valid){dollars+=(b.h+b.l+b.c)/3*b.v;shares+=b.v;}
+   return {...b,vwap:valid&&shares>0?dollars/shares:null};
+  });
+ }
  function intraday(state,minutes){
   const start=stamp(state.session_open||state.bars[0].t),clock=stamp(state.clock),step=minutes*60000;
   const byTime=new Map(state.bars.map(b=>[stamp(b.t),b]));const bars=[];
@@ -26,6 +34,7 @@ const LabChart = (()=>{
     l:complete?Math.min(...parts.map(b=>b.l)):null,c:complete?parts.at(-1).c:null,
     v:complete?parts.reduce((a,b)=>a+b.v,0):null});
   }
+  if(minutes===1&&state.chart_warmup?.length){return indicators([...state.chart_warmup,...bars]).slice(state.chart_warmup.length);}
   return indicators(bars);
  }
  function series(state,timeframe){
@@ -36,7 +45,7 @@ const LabChart = (()=>{
    return j>=0&&finite(source[j][key])?source[j][key]:null;});
  }
 
- let chart=null,actual=null,ghost=null,volume=null,lastKey='',lastCount=0,lastState=null,lastForecast=null,lastHour=null,hourBand=null,hourEnd=null;
+ let chart=null,actual=null,longGhost=null,ghost=null,volume=null,lastKey='',lastCount=0,lastState=null,lastForecast=null,lastHour=null,hourBand=null,hourEnd=null;
  const overlays=new Map();
  const unix=t=>Math.floor(stamp(t)/1000);
  function candleData(bars){return bars.map(b=>[b.o,b.h,b.l,b.c].every(finite)?
@@ -82,17 +91,20 @@ const LabChart = (()=>{
   lastState=state;lastForecast=forecast;lastHour=hour;if(!chart)create();
   if(formingSeries)formingSeries.setData([]);
   const timeframe=$('chartTimeframe').value,count=Number($('chartCount').value),bars=series(state,timeframe);
-  const key=(state.symbol||'QQQ')+'|'+state.provider+'|'+state.date+'|'+timeframe,reset=key!==lastKey||count!==lastCount;
+  const key=(state.symbol||'QQQ')+'|'+state.provider+'|'+state.date+'|'+timeframe+'|'+(timeframe==='1'&&$('showHour').checked?hour?.id||'':''),reset=key!==lastKey||count!==lastCount;
   const range=chart.timeScale().getVisibleLogicalRange();
   chart.applyOptions({timeScale:{timeVisible:timeframe!=='daily',tickMarkFormatter:t=>timeframe==='daily'?fmt(t*1000,true):new Date(t*1000).toLocaleString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})}});
   actual.setData(candleData(bars));volume.setData(bars.map(b=>finite(b.v)&&finite(b.c)?{time:unix(b.t),value:b.v,color:b.c>=b.o?'#84e3bc60':'#e9959960'}:{time:unix(b.t)}));
-  const fc=timeframe==='1'&&forecast?forecast.targets.map((t,i)=>({t,o:forecast.candles[i][0],h:forecast.candles[i][1],l:forecast.candles[i][2],c:forecast.candles[i][3],lo:forecast.low[i],hi:forecast.high[i]})):[];
+  // Five-minute forecasts remain saved/scored, but only the 50-minute path is drawn.
+  const fc=[];
   const showHour=timeframe==='1'&&document.getElementById('showHour')?.checked&&hour;
-  const hourGrid=showHour?Array.from({length:61},(_,i)=>({time:unix(hour.as_of)+i*60})):[];
+  if(!longGhost)longGhost=chart.addSeries(L.CandlestickSeries,{upColor:'#a8caff66',downColor:'#a8caff66',wickUpColor:'#a8caff',wickDownColor:'#a8caff',borderUpColor:'#a8caff',borderDownColor:'#a8caff',priceLineVisible:false,lastValueVisible:false});
+  longGhost.setData(showHour?hour.targets.map((t,i)=>({time:unix(t),open:hour.candles[i][0],high:hour.candles[i][1],low:hour.candles[i][2],close:hour.candles[i][3]})).filter(b=>b.time>=unix(state.clock)):[]);
+  const hourGrid=showHour?Array.from({length:Math.round((Date.parse(hour.end)-Date.parse(hour.as_of))/60000)+1},(_,i)=>({time:unix(hour.as_of)+i*60})):[];
   const ghostMap=new Map(hourGrid.map(b=>[b.time,b]));for(const b of candleData(fc))ghostMap.set(b.time,b);
   ghost.setData([...ghostMap.values()].sort((a,b)=>a.time-b.time));
-  if(!hourBand){hourBand=chart.addSeries(L.BaselineSeries,{baseValue:{type:'price',price:0},topLineColor:'#edbd6e',topFillColor1:'#edbd6e22',topFillColor2:'#edbd6e22',bottomLineColor:'transparent',bottomFillColor1:'transparent',bottomFillColor2:'transparent',priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});
-   hourEnd=chart.addSeries(L.LineSeries,{color:'#ffd391',lineVisible:false,pointMarkersVisible:true,pointMarkersRadius:5,priceLineVisible:false,lastValueVisible:true,title:'1h close'});}
+  if(!hourBand){hourBand=chart.addSeries(L.BaselineSeries,{baseValue:{type:'price',price:0},topLineColor:'#a8caff',topFillColor1:'#a8caff0a',topFillColor2:'#a8caff0a',bottomLineColor:'transparent',bottomFillColor1:'transparent',bottomFillColor2:'transparent',priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});
+   hourEnd=chart.addSeries(L.LineSeries,{color:'#a8caff',lineVisible:false,pointMarkersVisible:true,pointMarkersRadius:5,priceLineVisible:false,lastValueVisible:true,title:'50m close'});}
   const hr=hour?.range;
   if(showHour&&hr?.high&&hr?.low){hourBand.applyOptions({baseValue:{type:'price',price:hr.low.median}});hourBand.setData([{time:unix(hour.as_of),value:hr.high.median},{time:unix(hour.end),value:hr.high.median}]);}else hourBand.setData([]);
   hourEnd.setData(showHour?[{time:unix(hour.end),value:hour.median_close}]:[]);
@@ -105,7 +117,7 @@ const LabChart = (()=>{
    item.setData(data);return item;
   }
   const chosen=[...document.querySelectorAll('[data-ma]:checked')].map(el=>Number(el.dataset.ma));
-  if(showHour&&hr?.low)line('hour-low',[{time:unix(hour.as_of),value:hr.low.median},{time:unix(hour.end),value:hr.low.median}],'#edbd6e',false,true);
+  if(showHour&&hr?.low)line('hour-low',[{time:unix(hour.as_of),value:hr.low.median},{time:unix(hour.end),value:hr.low.median}],'#a8caff',false,true);
   const selection=$('indicatorFrame').value,frames=selection==='both'?['hourly','daily']:[selection==='chart'?timeframe:selection];
   const colors=['#f5c06c','#76cde5','#b9a1ff','#e7a4c3','#a6d779','#f19877'];
   for(const frame of frames){
@@ -117,6 +129,13 @@ const LabChart = (()=>{
     const chip=document.createElement('span');chip.className='indicator-chip';chip.style.borderColor=color;chip.style.color=color;
     chip.textContent=label+' '+name+(finite(values.at(-1))?' $'+values.at(-1).toFixed(2):' unavailable');legend.append(chip);
    }
+  }
+  for(const [id,field,title,color] of [['sessionVwap','vwap','Session VWAP (candle approximation)','#f4d35e'],['minuteSma200','sma200','1m SMA 200','#ef9aab']]){
+   if(!$(id)?.checked)continue;
+   const source=sessionVwap(series(state,'1')),values=asOf(source,bars,field);
+   line(id,bars.map((b,i)=>finite(values[i])?{time:unix(b.t),value:values[i]}:{time:unix(b.t)}),color);
+   const chip=document.createElement('span');chip.className='indicator-chip';chip.style.color=color;
+   chip.textContent=title+(finite(values.at(-1))?' $'+values.at(-1).toFixed(2):' unavailable (needs complete history)');legend.append(chip);
   }
   for(const [field,color] of [['lo','#7895d5'],['hi','#7895d5']])if(fc.length)line('forecast-'+field,fc.map(b=>({time:unix(b.t),value:b[field]})),color,true,true);
   if($('frozenLevels').checked&&forecast?.market_context&&bars.length){
@@ -133,14 +152,14 @@ const LabChart = (()=>{
   }
   lastKey=key;lastCount=count;
   const missing=bars.filter(b=>!finite(b.c)).length;
-  $('chartNotice').textContent=`${bars.length} available completed ${timeframe==='hourly'?'hourly':timeframe==='daily'?'daily':timeframe+'-minute'} slots; ${missing} missing. `+(timeframe==='1'?'Blue forecast candles and dashed close bounds are predictions. ':'Forecast candles appear on the 1-minute view. ')+(timeframe==='daily'?'Today appears after session close. ':timeframe==='hourly'?'Full hours start at 9:30 NY; short closing block excluded. ':'')+'Pan through loaded history. Indicator values in the legend are the latest available; use Fit indicators if levels are outside the price view.';
+  $('chartNotice').textContent=`${bars.length} available completed ${timeframe==='hourly'?'hourly':timeframe==='daily'?'daily':timeframe+'-minute'} slots; ${missing} missing. `+(timeframe==='1'?'Light-blue ghosts: selected 50-minute forecast. Bright cyan: live price. Five-minute forecasts are saved and scored separately. ':'Forecast candles appear on the 1-minute view. ')+(timeframe==='daily'?'Today appears after session close. ':timeframe==='hourly'?'Full hours start at 9:30 NY; short closing block excluded. ':'')+'Pan through loaded history. Indicator values in the legend are the latest available; use Fit indicators if levels are outside the price view.';
  }
  let formingSeries=null;
  function stream(bar){
   if(!chart)return;
-  if(!formingSeries)formingSeries=chart.addSeries(window.LightweightCharts.CandlestickSeries,{upColor:'#edbd6e',downColor:'#edbd6e',wickUpColor:'#edbd6e',wickDownColor:'#edbd6e',borderVisible:false,title:'Partial live',priceLineVisible:false});
+  if(!formingSeries)formingSeries=chart.addSeries(window.LightweightCharts.CandlestickSeries,{upColor:'#52eaff',downColor:'#52eaff',wickUpColor:'#52eaff',wickDownColor:'#52eaff',borderColor:'#ffffff',borderVisible:true,title:'LIVE PRICE',priceLineVisible:true,priceLineColor:'#52eaff',priceLineWidth:2,priceLineStyle:0});
   formingSeries.setData(bar?[bar]:[]);
  }
- return {draw,stream,indicators,intraday,asOf,series,candleData};
+ return {draw,stream,sessionVwap,indicators,intraday,asOf,series,candleData};
 })();
 if(typeof module!=='undefined')module.exports=LabChart;

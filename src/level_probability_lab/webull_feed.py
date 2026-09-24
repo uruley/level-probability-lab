@@ -12,7 +12,7 @@ from .calendar import session_schedule
 SCANNER=Path(r'C:\Users\ruley\WebullTradingScanner')
 
 
-def normalize(records,minutes,now):
+def normalize(records,minutes,now,premarket=False):
     if not records: raise ValueError('Webull returned no candles.')
     frame=pd.DataFrame(records).rename(columns={'timestamp':'bar_start'})
     frame['bar_start']=pd.to_datetime(frame.bar_start,utc=True,errors='raise')
@@ -28,12 +28,15 @@ def normalize(records,minutes,now):
     schedule=session_schedule(str(frame.bar_start.min().date()),str(frame.bar_start.max().date()))
     parts=[]
     for r in schedule.itertuples():
-        part=frame.loc[(frame.bar_start>=r.market_open)&(frame.bar_end<=r.market_close)].copy()
+        opening=(r.market_open.tz_convert('America/New_York').normalize()+pd.Timedelta(hours=4)).tz_convert('UTC') if premarket else r.market_open
+        part=frame.loc[(frame.bar_start>=opening)&(frame.bar_end<=r.market_close)].copy()
         if not part.empty:
             if ((part.bar_start-r.market_open).dt.total_seconds()%(minutes*60)!=0).any(): raise ValueError('Unexpected Webull candle alignment.')
-            part['session_open']=r.market_open;part['session_close']=r.market_close
+            part['session_open']=opening;part['session_close']=r.market_close
+            part['regular_open']=r.market_open
+            part['session_policy']='pre-rth-v1' if premarket else 'rth'
             parts.append(part)
-    if not parts: raise ValueError('No completed regular-session candles returned.')
+    if not parts: raise ValueError('No completed candles returned for the configured session.')
     return pd.concat(parts,ignore_index=True)
 
 
@@ -41,16 +44,19 @@ def feed_status(bars,now,error=None):
     if error:return dict(ready=False,status='error',message=error)
     today=now.tz_convert('America/New_York').strftime('%Y-%m-%d')
     schedule=session_schedule(today,today)
-    if schedule.empty or now<schedule.iloc[0].market_open or now>=schedule.iloc[0].market_close:
-        return dict(ready=False,status='market_closed',message='Regular market is closed. Showing the latest recorded session; no live forecasts.')
+    premarket='session_policy' in bars and bars.iloc[-1].session_policy=='pre-rth-v1'
+    opening=pd.Timestamp(today,tz='America/New_York')+pd.Timedelta(hours=4) if premarket else (schedule.iloc[0].market_open if not schedule.empty else now)
+    if schedule.empty or now<opening or now>=schedule.iloc[0].market_close:
+        return dict(ready=False,status='market_closed',message='Forecast session is closed. Showing the latest recorded session; no live forecasts.')
     if bars.iloc[-1].bar_end<now-pd.Timedelta(seconds=95):
         return dict(ready=False,status='stale',message='Waiting for current completed candles. Stale data cannot trigger forecasts.')
-    return dict(ready=True,status='live',message='Official Webull · completed candles · checking after each minute closes.')
+    period='premarket' if now<schedule.iloc[0].market_open else 'regular hours'
+    return dict(ready=True,status='live',message=f'Official Webull · {period} · completed candles · checking after each minute closes.')
 
 
 class Feed:
     def __init__(self,root,output,symbol="QQQ"):
-        if symbol not in ("QQQ","TSLA","NVDA"):raise ValueError("Unsupported symbol")
+        if symbol not in ("QQQ","TSLA","NVDA","SPCX","AMZN","GOOGL"):raise ValueError("Unsupported symbol")
         self.symbol=symbol
         self.root=Path(root);self.output=Path(output)/'webull';self.lock=threading.RLock()
         if symbol!='QQQ':self.output=self.output/symbol
@@ -69,7 +75,7 @@ class Feed:
                 if data.get('provider')!='webull_official' or data.get('symbol')!=self.symbol:raise ValueError('Unexpected Webull data source.')
                 now=pd.Timestamp.now(tz='UTC'); updated=dict(self.frames)
                 for key,records in data['frames'].items():
-                    incoming=normalize(records,1 if key=='M1' else 5,now)
+                    incoming=normalize(records,1 if key=='M1' else 5,now,premarket=key=='M1')
                     old=updated.get(key,pd.DataFrame())
                     updated[key]=pd.concat([old,incoming],ignore_index=True).drop_duplicates('bar_start',keep='last').sort_values('bar_start').reset_index(drop=True)
                 # Derive new M5 buckets from minute bars; never fill a missing minute.

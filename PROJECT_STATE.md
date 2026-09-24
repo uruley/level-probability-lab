@@ -1,5 +1,137 @@
 # PROJECT_STATE.md
 
+2026-09-24: user requested a rolling 50-minute forecast on each completed
+live minute. Browser now runs both five- and fifty-minute predictions per new
+clock, with duplicate guards and failure isolation. Saved paths remain immutable;
+main/lower charts select the latest long forecast. Replay expiry cadence unchanged.
+Live-loop regression checks cover repeated polls, new minutes and unavailable horizons.
+
+2026-09-24: added user-requested SPCX, AMZN and GOOGL to live/recorded Webull
+selectors, candle workers, stream workers and forward review. Each symbol has
+separate recordings and uses the existing premarket/RTH 400-input configuration.
+Official feed verification returned 1,200 candles and a valid 400-minute window
+for all three. 15 focused feed/premarket/review/stream tests passed.
+
+2026-09-24 follow-up: user switched live one-minute inputs/forecasts to
+premarket + RTH (`pre-rth-v1`), 04:00 America/New_York through exchange close.
+Official Webull M1 requests explicitly include PRE,RTH. Inputs require all
+400 scheduled completed minutes, using prior sessions when necessary; no gap
+filling. Five- and fifty-minute ghosts can run premarket and cross 09:30.
+Hourly chart and Nasdaq archive replay retain their RTH contract. Saved rows
+and dashboard groups identify the policy; historical RTH studies are unchanged.
+19 focused Python tests and chart/live/rollover JavaScript checks pass.
+
+2026-09-24: lab default is 400 completed one-minute inputs with prior regular
+sessions for warmup. The former 15-minute projection now forecasts 50 one-minute
+candles, saved separately in `data/kronos_lab/fifty_minute_forecasts.jsonl`.
+Five-minute scoring remains separate; old records are preserved. Recorded TSLA
+Sep23 opening check generated 50 candles from 400 inputs in 10.12 seconds.
+Seven focused Python tests and JavaScript rollover tests pass. This verifies
+operation, not improved accuracy. TSLA fine-tuning has not started.
+
+Saved forward-review dashboard implemented: per-symbol/date Webull recordings,
+five-minute close/range errors, flat-price baseline, 1:1/2:1/3:1 outcome counts,
+latest 100 per-minute comparisons, freshness/gaps and late-forecast exclusions.
+New forecasts save approximate session VWAP and SMA200 context before inference.
+Old context is not reconstructed. Derived snapshots survive restarts; live
+recording still needs the browser loop. See `docs/FORWARD_DASHBOARD.md`.
+
+SMA200 matched June check complete: 57 pairs from 63 fixed eligible origins;
+12 rejection / 57 SMA candidates versus 11 / 57 controls (+1.75pp), with one
+ambiguous control. No convincing added value; no Scout training or promotion.
+All eight earlier incomplete SMA encounters are session-end truncations;
+330 pre-close tape minutes reconcile without failure. See
+`docs/SMA200_MATCHED_V1_RESULTS.md`. Eleven tests and immutable rerun pass.
+Prospective Sep24–Oct21 confirmation plan saved, NOT collected/evaluated;
+no paid requests or July access. Do not call explored June a final test.
+
+June tape follow-up complete: 1,065 touched records; 3,587 verified minutes,
+154 failed audit minutes retained as incomplete windows. Conservative overlap
+grouping produces 65 encounter groups; SMA200 17 rejection / 2 continuation /
+8 incomplete, VWAP 7 / 8 / 0. Descriptive only, no rule promoted. See
+`docs/ZONE_TAPE_V2_RESULTS.md`. Chart SMA200 uses existing validated prior-session
+warmup; VWAP still resets at open. 13 focused Python tests and chart checks pass.
+
+June zone-response v2 completed: 1,134 origins / 21 sessions / 5,670 candidate
+records, adding audited session VWAP and 200-period one-minute SMA to the
+three existing level types. Most touched events remain candle-ambiguous;
+no probability/edge established. See `docs/ZONE_RESPONSE_V2_RESULTS.md`.
+Main chart now has default-on approximate session VWAP and dedicated 1m SMA200
+overlays (SMA requires 200 loaded bars). Eight Python tests and chart checks
+pass; UI verified. July and original v1 results preserved. Next: separate
+tape-resolution ledger for ambiguous June touches, not threshold tuning.
+
+Four ambiguous zone events resolved from acquired Nasdaq trade sequences:
+one rejection, three continuations; original candle labels preserved. All
+98 selected event-window minutes reconcile with audited OHLCV/trade counts;
+zero event-time inversions. Six tests pass; no paid calls or July inspection.
+See `docs/ZONE_TAPE_V1_RESULTS.md`; four events establish no probability edge.
+
+Candidate-area response pilot implemented offline: 60 fixed May candidates
+(previous-day high/low, hourly SMA20), 56 no-touch and four ambiguous events.
+No rejection probability estimated. Visual ledger in `data/zone_response_v1/index.html`;
+frozen inputs/outcomes, audited minute trade volume, four tests, repeat build verified.
+See `docs/ZONE_RESPONSE_V1.md` and `docs/ZONE_RESPONSE_V1_RESULTS.md`. Raw-tape
+ordering resolution is the next bounded task; no paid calls or training.
+
+Live QQQ Jev experimental observer implemented, off by default, separate
+background thread, durable daily $0.25 conservative reservation cap, UI scores
+and five-minute actual classes. Restarted lab; reconnect live QQQ and enable
+the bottom observer panel. 21 focused tests pass. See `docs/JEV_LIVE.md` for
+limits including ~90 calls/day, partial context and no real live-minute proof yet.
+
+Unchanged Jev June continuation complete: 42 origins/21 sessions, 84 valid
+responses, estimated $0.00594. Context gains over no-context remain uncertain;
+context Jev loses to Kronos on Brier and log loss with paired intervals above
+zero. Study now covers 82 origins/41 sessions across May/June. No promotion.
+See `docs/JEV_CONTEXT_JUNE_RESULTS.md`. Cached replay and 23 focused tests pass.
+
+Jev paired context experiment completed: 80/80 valid responses for 40 origins
+across 20 May sessions. Context improved Jev log loss but worsened Brier;
+both paired intervals cross zero. Kronos point scores beat both Jev arms.
+Estimated charge $0.0056532; cached replay verified, 23 focused tests pass.
+See `docs/JEV_CONTEXT_SAMPLE_V1.md` and `data/jev_context_sample_v1/report.json`.
+No promotion or continuous Jev polling enabled.
+
+Jev context comparison prepared offline: 40 May origins / 20 sessions, 80
+paired packages frozen under `data/jev_context_sample_v1/`. Context/forecast
+hashes, reference price and cutoff checks passed, all twenty requested levels
+available. Eight focused tests pass and repeated build is byte-identical.
+No API calls. Proposed 80-request/$0.25 run remains disabled; see
+`docs/JEV_CONTEXT_SAMPLE_V1.md` for scope and historical-availability limits.
+
+Jev ten-origin test completed after user approval: all ten compact requests
+validated; offline cached replay works. Estimated cost $0.000333564 for 7,942
+input tokens at published pricing. Jev Brier .386680 vs Base .326080; Jev
+log loss 1.762753 vs Base 1.654979. No added value demonstrated on this tiny
+development sample. Full artifacts: `data/jev_sample_v1/report.json`.
+
+Jev ten-origin sample frozen in `data/jev_sample_v1/manifest.json`: earliest
+Base origin on May 4–15 sessions, selected without outcomes; byte-identical
+rerun verified. Proposed ten requests / $0.25, not yet authorized or cost-verified.
+Network disabled, no credits spent. See `docs/JEV_COMPANION_PROTOCOL_V1.md`.
+
+September 23 offline follow-up: corrected Bulls/Bears uncertainty with paired
+session bootstrap in `baseline_probability_summary_v2.json`. June Kronos beats
+May climatology on Brier but loses on log loss; prior per-session percentiles
+were not confidence intervals. See `docs/BULL_BEAR_PROBABILITY_V1.md`.
+Prepared `data/jev_compact_v1/` (795-byte state, 92% smaller by bytes), explicit
+missing context and close-only summaries with OHLC quality counts. No API calls.
+18 focused tests pass; compact schema has not been sent to Jev.
+
+Jev pilot verified after explicit approval: one May 1 archived Base forecast
+sent to TypeSafe, response model jev-1.13.0, parsed and saved under
+`data/jev_pilot_v1/`. Observed two-decimal scores summed to .99; raw scores
+are retained alongside explicitly normalized scores. Twelve offline tests
+pass. No second network call was needed to handle rounding. Exact dollar
+charge unknown. Pilot only; no continuous Jev chart integration yet.
+
+September 23 Jev adapter repair: official responses use `answers.move_5m`.
+Parser, response cache, model/usage recording and one-request reservation are
+implemented; nine offline tests pass. The actual archived May 1 pilot is
+pending explicit data-sharing approval after automatic review blocked it.
+See `docs/JEV_COMPANION_PROTOCOL_V1.md`. No additional Jev request was sent.
+
 ## Goal
 
 Current priority (2026-09-19): measure **where Kronos forecasts work best**.
@@ -488,3 +620,78 @@ caught up. Feed cache throttle is4 seconds. Recent TSLA inference was~0.25s;
 creation latency after candle close was7.65–22.46s before this scheduling change.
 Provider publication, request and computation time still add latency; no
 instantaneous forecasting claim. Focused feed and JS polling/chart tests pass.
+
+
+## September 22: stacked forecast charts
+
+The Lab now displays the main one-minute chart, an expanded five-minute chart,
+and a separate hourly chart above the score tables. The existing five-minute
+model input remains 120 completed five-minute candles, producing twelve bars
+(next hour). The new hourly branch uses 60 completed full regular-session
+hourly candles and produces five hourly candles with Kronos Base.
+
+Hourly bars start at 09:30 Eastern. Forecasts now use the last completed
+full hour, including requests between boundaries. Before the first hour closes,
+the previous session supplies the latest full hour. Input cutoff and request
+time are recorded separately; later candles are excluded from model input. The short closing half-hour is excluded, as are closed
+market periods. Future targets can continue into the next trading session.
+Missing input slots block prediction; no candles are invented. Automatic hourly
+updates are enabled by default, with frozen forecast selection and per-bar close
+errors as actual hours complete. Replay steps preserve hourly boundaries.
+
+Raw sampled paths, input provenance and frozen display candles are saved in
+hourly_bar_forecasts.jsonl; revealed outcome snapshots in hourly_bar_outcomes.
+This is an exploratory multi-timeframe display, not a validated swing-trade
+model or an agreement-based signal. July sealed studies are unchanged.
+
+Validation: 145 Python tests passed, chart/playback browser logic tests passed,
+and real local Base inference produced twelve five-minute and five hourly bars
+on an August development replay.
+
+
+September 23 update: the middle five-minute chart is replaced by a fifteen-minute
+forecast using completed one-minute inputs and 15 future one-minute bars.
+The selected input lookback applies. New records use fifteen_minute_forecasts.jsonl
+and fifteen-v1 IDs; legacy five-minute/hour records are preserved. The middle
+chart retains a separate frozen predicted-close line for every issued forecast
+alongside actual closes, after elapsed ghost candles disappear. These lines are
+displayed for the current replay session; full paths remain saved on disk.
+The true hourly chart remains five hourly bars.
+
+The first real three-class path-frequency scorer is implemented in
+`bull_bear_probability.py`. It currently has one archived compatible session:
+266 Kronos Small origins on August 14, with Brier 0.008478 and log loss
+0.060796. This is an uncalibrated one-session wiring check (265 neutral, 1 bear),
+not a performance result. See `docs/BULL_BEAR_PROBABILITY_V1.md`; do not compare
+it with the 21-session binary ledger as if the schemas were identical.
+
+Stage 2 baseline inspection is now recorded in `docs/BULL_BEAR_BASELINES_V1.md`
+and `data/bull_bear_truth_v1/baseline_summary.json`. It reuses 5,586 existing
+August origins only; no July rows were read. The current ledger lacks genuine
+three-class forecast distributions, so this artifact reports hard descriptive
+classes and explicitly withholds probability metrics. The frozen May/June
+baseline export now supplies 2,214 compatible origins per engine; descriptive
+results are in `data/bull_bear_truth_v1/baseline_probability_summary.json` and
+the probability v1 document. July remains unread.
+
+Jev companion work is now specified, but not executed. The frozen interface,
+three-class output contract, calibration warning, and May/June evaluation
+rules are in `docs/JEV_COMPANION_PROTOCOL_V1.md`. Jev remains a separate
+comparison model and cannot alter Kronos inputs or use July for tuning.
+
+
+## September 23: Bulls/Bears Stage 1 offline truth set
+
+Implemented isolated bull_bear_truth.py with exact five-subsequent-minute
+QQQ RTH close-return labels (+/-10bp, boundaries neutral), hashed point-in-time
+snapshots and append-only outcome snapshots using ForecastStore. Delayed,
+partial, missing, duplicate and corrected bars are guarded; no future input
+mutation can change a frozen snapshot. Explicit historical availability and
+price policies are required. Live app and models are unchanged.
+
+Contract: docs/BULL_BEAR_TRUTH_V1.md. Tests: 19 new tests; full offline suite
+165 passed. August 14 integration: 12 complete origins, all neutral; records
+in data/bull_bear_truth_v1/aug14, repeated writes byte-identical. This is
+pipeline verification, not a predictive result. No July access, paid calls,
+training or service changes. Next proposed stage is same-origin baselines;
+Jev, order flow, multiclass calibration and probability UI remain unimplemented.

@@ -20,7 +20,7 @@ console.log('Hourly rollover: deadline, duplicate prevention, opt-out, session c
 // Exercise the real playback orchestration with an isolated fake API and clock.
 const vm=require('node:vm'),fs=require('node:fs');
 const elements=new Map();
-const context=vm.createContext({HourView:hour,console,setTimeout,clearTimeout,
+const context=vm.createContext({window:{addEventListener(){}},StackView:{select(){},refresh(){}},HourView:hour,console,setTimeout,clearTimeout,
  document:{getElementById:id=>{if(!elements.has(id))elements.set(id,{checked:id==='autoHour',value:'25',classList:{toggle(){}},disabled:false});return elements.get(id)},querySelectorAll:()=>[],addEventListener(){}},
  ResizeObserver:class{observe(){}},fetch:()=>new Promise(()=>{})});
 vm.runInContext(fs.readFileSync(require.resolve('../src/level_probability_lab/lab_web/app.js'),'utf8'),context);

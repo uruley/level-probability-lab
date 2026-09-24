@@ -1,5 +1,66 @@
 # Kronos Lab local app
 
+Ghost forecasts use light blue; the partial live candle has a bright cyan
+LIVE PRICE line and label. The five-minute forecast updates per completed bar;
+live fifty-minute forecasts now also refresh on every new completed minute.
+Each individual saved path remains frozen; historical replay retains expiry rollover.
+Different origins can therefore disagree; display colors do not alter forecasts.
+
+The top one-minute chart also displays the selected 50-minute forecast as
+light-blue ghost candles, controlled by **50-minute ghost candles & range**.
+It uses the same saved forecast as the lower chart; five-minute forecasts
+remain saved/scored but their ghost candles and dashed bounds are hidden on the main chart. Expired long candles disappear as actuals arrive. Selecting
+a new long forecast refocuses the main view to include its future timestamps.
+
+The lower 50-minute chart initially focuses the recent 60 minutes plus the
+selected forecast instead of compressing all premarket history into view.
+Use **Focus forecast** to restore that view after zooming or panning. Light-blue
+ghost bodies are brighter; saved prediction traces are thinner. The main chart
+still shows the separate five-minute forecast.
+
+## September 24 follow-up: premarket enabled
+
+Live Webull one-minute bars now explicitly request PRE and RTH sessions via
+the installed official SDK. The prior scanner wrapper requested RTH by default.
+The live chart and both five- and fifty-minute predictions operate from 04:00
+America/New_York through the exchange close. Inputs include premarket and carry
+over preceding configured sessions to reach 400 completed minutes. Missing
+minutes block predictions; partial streaming candles never enter the model.
+Forecasts can cross 09:30 but cannot cross the closing boundary. Holidays and
+early closes use the exchange calendar. After-hours remains excluded.
+
+New records carry `session_policy=pre-rth-v1` in their identity and metadata;
+the forward dashboard separates that policy from prior RTH records. The chart
+VWAP now starts at the configured 04:00 session open for these recordings;
+SMA200 includes completed premarket bars. The separate hourly forecast and
+Nasdaq archive replay remain RTH. Old saved forecasts are not regenerated.
+
+Verified official TSLA response: 1,200 bars including Sep24 premarket, with a
+valid 400-bar window through 09:17 Eastern. 19 focused Python tests and JS
+chart/live-loop/rollover tests passed. This supersedes the RTH-only live policy
+described below; no accuracy improvement has been established.
+Live verification also saved a TSLA five-minute forecast at 09:20 Eastern and
+a 50-minute forecast spanning 09:20–10:10, both with 400 inputs. The browser
+selected the new long forecast while receiving live quotes.
+
+## September 24: 400 inputs and 50-minute projection
+
+The default input window is now 400 completed one-minute bars. Opening forecasts
+use prior regular-session history, excluding overnight and premarket. At 9:31
+New York time, this needs yesterday's 390 bars plus nine from the preceding
+session and today's first completed bar. Missing history blocks inference.
+
+The former 15-minute chart now predicts 50 one-minute candles with the selected
+input window. Forecasts remain frozen and saved traces remain visible. New
+records use `data/kronos_lab/fifty_minute_forecasts.jsonl` and a `fifty-v1`
+identity; old 15-minute records are preserved. Automatic renewal occurs after
+the forecast ends, provided 50 regular-session minutes remain. The main
+five-minute forecast and its scoring remain separate.
+
+Recorded TSLA Sep23 opening verification: 400 inputs, 50 outputs, 25 sampled
+paths, 10.12 seconds. Seven focused Python tests and JavaScript rollover tests
+passed. This does not establish an accuracy improvement. Fine-tuning is pending.
+
 Run `Start-Kronos-Lab.ps1` from the project folder, or:
 
 ```powershell

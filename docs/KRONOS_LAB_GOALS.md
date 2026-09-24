@@ -2,7 +2,31 @@
 
 Updated 2026-09-19 from the user's clarified objective.
 
+2026-09-24 follow-up supersedes RTH-only live warmup below: user requested
+premarket candles and premarket ghost forecasts. Webull one-minute path now
+uses PRE + RTH (04:00 Eastern through exchange close), tagged `pre-rth-v1`.
+Keep this experiment separate from prior RTH evidence. No fine-tuning yet.
+
+2026-09-24 user-requested experiment: default to 400 completed one-minute inputs
+and display 50 future one-minute candles on the extended chart. Use prior
+regular sessions for opening warmup; do not invent missing bars. Keep five-minute
+evaluation separate. Verify this setup before TSLA fine-tuning; more context
+and a longer horizon have not demonstrated better accuracy.
+
 ## Current priority: forecast reliability by market location
+
+2026-09-23 follow-up: fixed matched June SMA200 comparison shows 12/57
+rejections versus 11/57 controls; no convincing added value. See
+`SMA200_MATCHED_V1_RESULTS.md`. Preserve rules; no new indicator search or
+Scout training on this evidence. Prospective confirmation plan is saved for
+Sep24–Oct21 but has not been collected or evaluated. July remains sealed.
+
+2026-09-23: user requested session VWAP and the 200-period one-minute simple
+moving average as candidate areas. Added separate chart overlays and fixed
+June zone-response v2 study; see `ZONE_RESPONSE_V2.md`. Freeze these levels
+at each origin and retain all quality/outcome categories. They are hypotheses,
+not proven support/resistance or calibrated trade probabilities. Chart VWAP
+is a candle approximation; study VWAP uses audited Nasdaq trade summaries.
 
 2026-09-20: user also requested a separate one-hour visual forecast. Implemented
 with 120 completed five-minute inputs and twelve forecast candles from Base;
@@ -186,3 +210,40 @@ Kronos forecasts and local recording/replay. No account/order access or new
 subscription purchase is included. See [Webull live setup](WEBULL_LIVE.md).
 Observe a market-hours run before declaring live delivery verified; preserve
 source labels and keep exploratory live scores separate from sealed studies.
+
+
+## September 22: stacked forecast charts
+
+The Lab now displays the main one-minute chart, an expanded five-minute chart,
+and a separate hourly chart above the score tables. The existing five-minute
+model input remains 120 completed five-minute candles, producing twelve bars
+(next hour). The new hourly branch uses 60 completed full regular-session
+hourly candles and produces five hourly candles with Kronos Base.
+
+Hourly bars start at 09:30 Eastern. Forecasts now use the last completed
+full hour, including requests between boundaries. Before the first hour closes,
+the previous session supplies the latest full hour. Input cutoff and request
+time are recorded separately; later candles are excluded from model input. The short closing half-hour is excluded, as are closed
+market periods. Future targets can continue into the next trading session.
+Missing input slots block prediction; no candles are invented. Automatic hourly
+updates are enabled by default, with frozen forecast selection and per-bar close
+errors as actual hours complete. Replay steps preserve hourly boundaries.
+
+Raw sampled paths, input provenance and frozen display candles are saved in
+hourly_bar_forecasts.jsonl; revealed outcome snapshots in hourly_bar_outcomes.
+This is an exploratory multi-timeframe display, not a validated swing-trade
+model or an agreement-based signal. July sealed studies are unchanged.
+
+Validation: 145 Python tests passed, chart/playback browser logic tests passed,
+and real local Base inference produced twelve five-minute and five hourly bars
+on an August development replay.
+
+
+September 23 update: the middle five-minute chart is replaced by a fifteen-minute
+forecast using completed one-minute inputs and 15 future one-minute bars.
+The selected input lookback applies. New records use fifteen_minute_forecasts.jsonl
+and fifteen-v1 IDs; legacy five-minute/hour records are preserved. The middle
+chart retains a separate frozen predicted-close line for every issued forecast
+alongside actual closes, after elapsed ghost candles disappear. These lines are
+displayed for the current replay session; full paths remain saved on disk.
+The true hourly chart remains five hourly bars.

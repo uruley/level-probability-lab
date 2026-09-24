@@ -34,8 +34,10 @@ attached to Webull forecasts; unavailable higher-timeframe context is explicit.
 
 scripts/webull_data_worker.py runs in the existing scanner environment:
 `C:/Users/ruley/WebullTradingScanner/.venv/Scripts/python.exe`.
-It directly instantiates OfficialWebullBackend with production data endpoints,
-using locally configured App Key/Secret and the scanner token directory. It does
+It directly instantiates OfficialWebullBackend with production data endpoints.
+The lab `.env` supplies `WEBULL_APP_KEY` and `WEBULL_APP_SECRET` when both are
+set, and that login keeps its token under `data/kronos_lab/webull_token`.
+Otherwise the scanner key and token directory are used. It does
 not use the scanner's automatic provider selection, account client, strategy
 engine, journal or demo fallback. Credentials are never sent to the browser,
 copied into this repo, or returned in worker errors. SDK output is suppressed.
@@ -86,6 +88,16 @@ is separate from completed-candle recording. No orders or purchases. Live
 verification received prices, bid/ask, 60 tape rows and forming OHLC. JavaScript
 chart/rollover checks passed. Raw feed records are not deduplicated trade totals.
 
+Level 2 check (2026-09-21, after the regular session): the official subscribe
+call accepts a `depth` argument, and quote messages can carry more than one
+bid and ask. A request for 10 levels on this OpenAPI app key was rejected
+with HTTP 417, `ILLEGAL_PARAMETER`, `depth not more than 1`. The same refusal came back after the lab `.env` secret was reset, and again
+at 9:46 AM Eastern on 2026-09-22 while the regular session was open. It is
+not an after-hours or overnight limit. This API application allows one level. Level 2 visible on the stocks page is a
+separate retail subscription and is not granted to OpenAPI. The stream falls
+back to trades, snapshots, and the inside quote. A one-level quote is
+recorded as top of book, not as Level 2.
+
 
 TSLA live support (September21): Live symbol selector switches candle polling,
 quote/tick stream and chart labels. TSLA records live under webull/TSLA and
@@ -104,3 +116,11 @@ caught up. Feed cache throttle is4 seconds. Recent TSLA inference was~0.25s;
 creation latency after candle close was7.65–22.46s before this scheduling change.
 Provider publication, request and computation time still add latency; no
 instantaneous forecasting claim. Focused feed and JS polling/chart tests pass.
+# September 24 symbol expansion
+
+User authorized SPCX (US-listed SpaceX), AMZN and GOOGL in addition to QQQ,
+TSLA and NVDA. All six are available in the live selector and recording review.
+The three new symbols returned current official Webull candles and valid
+400-minute PRE/RTH input windows. They use the existing Kronos model; this
+does not establish forecast accuracy on the added symbols. Data-only access;
+no orders or subscription purchases. Recordings remain separate by symbol.

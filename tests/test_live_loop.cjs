@@ -1,11 +1,11 @@
 const fs=require('fs'),vm=require('vm'),assert=require('assert');
 const source=fs.readFileSync('src/level_probability_lab/lab_web/app.js','utf8');
 const part=source.slice(source.indexOf('async function liveForecasts()'),source.indexOf('async function startLive()'));
-const ctx={liveRunning:true,state:{live_info:{ready:true},can_forecast:true,clock:'a',can_hour_forecast:true,hour_forecasts:[]},liveLastForecast:'',$:()=>({checked:true,value:'10'}),HourView:{rolloverSamples:()=>null},forecast:async()=>{throw Error('test minute failure')},forecastHour:async()=>{throw Error('test hour failure')}};
+const ctx={liveRunning:true,state:{live_info:{ready:true},can_forecast:true,clock:'a',can_hour_forecast:true,hour_forecasts:[]},liveLastForecast:'',liveLastLongForecast:'',$:()=>({checked:true,value:'10'}),HourView:{rolloverSamples:()=>null},forecast:async()=>{throw Error('test minute failure')},forecastHour:async()=>{throw Error('test hour failure')}};
 vm.createContext(ctx);vm.runInContext(part,ctx);
-(async()=>{const warning=await ctx.liveForecasts();assert(warning.includes('test minute failure'));assert(warning.includes('test hour failure'));assert(ctx.liveRunning);assert.equal(ctx.liveLastForecast,'a');console.log('Forecast failures stay isolated from live candle polling.');})();
+(async()=>{const warning=await ctx.liveForecasts();assert(warning.includes('test minute failure'));assert(warning.includes('test hour failure'));assert(ctx.liveRunning);assert.equal(ctx.liveLastForecast,'a');assert.equal(ctx.liveLastLongForecast,'a');let calls=0;ctx.forecastHour=async()=>{calls++;};await ctx.liveForecasts();assert.equal(calls,0);ctx.state.clock='b';await ctx.liveForecasts();assert.equal(calls,1);ctx.state.clock='c';ctx.state.can_hour_forecast=false;await ctx.liveForecasts();assert.equal(calls,1);console.log('Forecast failures stay isolated from live candle polling.');})();
 const source2=fs.readFileSync('src/level_probability_lab/lab_web/app.js','utf8');
-const delayCode=source2.slice(source2.indexOf('function livePollDelay()'));
+const delayCode=source2.slice(source2.indexOf('function livePollDelay()'),source2.indexOf("$('stackFivePredict')",source2.indexOf('function livePollDelay()')));
 let now=120000;const delayContext={Date:{now:()=>now,parse:Date.parse},state:{clock:new Date(60000).toISOString()}};
 vm.createContext(delayContext);vm.runInContext(delayCode,delayContext);
 assert.equal(delayContext.livePollDelay(),6000);

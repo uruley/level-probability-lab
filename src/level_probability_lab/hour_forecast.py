@@ -27,8 +27,8 @@ def aggregate(raw, schedule):
     return pd.DataFrame(rows)
 
 
-def load_inputs(source,date):
-    start=pd.Timestamp(date)-pd.Timedelta(days=14)
+def load_inputs(source,date,days=14):
+    start=pd.Timestamp(date)-pd.Timedelta(days=days)
     schedule=session_schedule(str(start.date()),date)
     raw=pd.read_parquet(source,filters=[('symbol','==','QQQ'),
         ('ts_event','>=',schedule.iloc[0].market_open.to_pydatetime()),
@@ -36,12 +36,12 @@ def load_inputs(source,date):
     return aggregate(raw.rename(columns={'ts_event':'bar_start'}),schedule)
 
 
-def availability(revealed):
+def availability(revealed, minutes=60):
     cutoff=revealed.iloc[-1].bar_end
-    if (cutoff-revealed.iloc[0].session_open).total_seconds()%300:
+    if minutes==60 and (cutoff-revealed.iloc[0].session_open).total_seconds()%300:
         return False,'Available at the next completed five-minute boundary.'
-    if cutoff+pd.Timedelta(hours=1)>revealed.iloc[0].session_close:
-        return False,'A full hour must remain in this regular session.'
+    if cutoff+pd.Timedelta(minutes=minutes)>revealed.iloc[0].session_close:
+        return False,f'{minutes} minutes must remain in this regular session.'
     return True,''
 
 
@@ -57,7 +57,7 @@ def input_window(history,revealed):
 
 def public(row,revealed):
     paths=np.asarray(row['sampled_paths'],float)
-    start=pd.Timestamp(row['as_of']); end=start+pd.Timedelta(hours=1)
+    start=pd.Timestamp(row['as_of']); end=start+pd.Timedelta(minutes=row.get('horizon_minutes',60))
     clock=revealed.iloc[-1].bar_end
     expected=pd.date_range(start,min(clock,end),freq='min',inclusive='left') if clock>start else pd.DatetimeIndex([],tz='UTC')
     actual=revealed.loc[revealed.bar_start.isin(expected)]
