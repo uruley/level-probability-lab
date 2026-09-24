@@ -13,6 +13,21 @@ regular sessions for opening warmup; do not invent missing bars. Keep five-minut
 evaluation separate. Verify this setup before TSLA fine-tuning; more context
 and a longer horizon have not demonstrated better accuracy.
 
+## Proposed next research layer: online Kronos reliability
+
+2026-09-24: add a separate River online-learning experiment that runs beside
+Kronos. River's first job is not to forecast price independently; it estimates
+the probability that a specific Kronos directional forecast is correct given
+only information available at the forecast origin. Score each River prediction
+before updating it with the resolved outcome. Keep Kronos and River decoupled
+(GPU forecaster vs lightweight CPU learner), persist the chronological event
+stream, and evaluate calibration with Brier/log loss in addition to accuracy.
+
+Start with existing candle/context fields. Time-and-sales, liquidity summaries,
+drift detection, and additional forecasters are later controlled branches.
+Do not fine-tune Kronos continuously and do not treat River confidence as a
+trade-win probability. Full design: [RIVER_ONLINE_LEARNING.md](RIVER_ONLINE_LEARNING.md).
+
 ## Current priority: forecast reliability by market location
 
 2026-09-23 follow-up: fixed matched June SMA200 comparison shows 12/57
