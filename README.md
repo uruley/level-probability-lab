@@ -4,6 +4,8 @@
 
 Active scope and next milestones: [Kronos Lab goals](docs/KRONOS_LAB_GOALS.md).
 
+Proposed online-learning layer: [River reliability experiment](docs/RIVER_ONLINE_LEARNING.md). River is planned to score and learn when Kronos forecasts are reliable; it is not implemented yet.
+
 The local visual app is available at `http://127.0.0.1:8765` while running:
 
 ```powershell
