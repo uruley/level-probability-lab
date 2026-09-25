@@ -535,6 +535,9 @@ def make_handler(lab, token):
                     from .forward_dashboard import dashboard
                     with lab.store_lock:
                         return self.send(dashboard(lab.output, lab.store.all(), body.get("symbol","QQQ"), body.get("date")))
+                if self.path == "/api/river":
+                    from .river_online import panel
+                    return self.send(panel(lab.output, body.get("forecast_id")))
                 if self.path == "/api/session":
                     if body.get('recorded'):return self.send(lab.create_recorded(str(body['date']),int(body.get('lookback',120)),body.get('symbol','QQQ')))
                     return self.send(lab.create(str(body["date"]), int(body.get("lookback", 120))))

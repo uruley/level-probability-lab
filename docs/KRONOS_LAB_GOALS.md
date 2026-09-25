@@ -13,7 +13,14 @@ regular sessions for opening warmup; do not invent missing bars. Keep five-minut
 evaluation separate. Verify this setup before TSLA fine-tuning; more context
 and a longer horizon have not demonstrated better accuracy.
 
-## Proposed next research layer: online Kronos reliability
+## Online Kronos reliability: River v1 research implementation
+
+The minimal loop is implemented with separate +1..+5 horizon logistic models,
+immutable event records, deterministic restart and an independent opt-in worker.
+September replay is a technical/development check, not a sealed validation:
+pooled Brier 0.258909 does not beat constant 0.5 (0.25). No live-market proof,
+calibration claim or promotion. Scout and the fifty-minute path remain separate.
+See the River guide for exact feature/label and availability contracts.
 
 2026-09-24: add a separate River online-learning experiment that runs beside
 Kronos. River's first job is not to forecast price independently; it estimates

@@ -20,6 +20,7 @@ dependencies = [
 [project.optional-dependencies]
 databento = ["databento>=0.45"]
 dev = ["pytest>=8.0"]
+river = ["river==0.22.0"]
 
 [project.scripts]
 lpl = "level_probability_lab.cli:main"

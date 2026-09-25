@@ -1,5 +1,15 @@
 # PROJECT_STATE.md
 
+2026-09-24 River v1 implementation: separate CPU logistic learners for +1..+5,
+frozen allowlisted features, atomic prediction/outcome journals, deterministic
+restart, chronological replay, independent opt-in live worker and read-only Lab
+panel. September recording replay: 7,695 predictions, 6,340 scored; pooled Brier
+0.258909 versus constant 0.5 Brier 0.25. No gain established or rule promoted.
+Live market-hours collection is not verified and the worker remains off.
+Validation: 228 Python tests (19 new River tests), four JavaScript test files,
+browser disabled-panel check and exact recovery of 15,390 saved River events.
+See `docs/RIVER_ONLINE_LEARNING.md` for contracts, commands and verification.
+
 2026-09-24: proposed a separate River online-learning layer beside Kronos.
 Kronos remains the GPU forecasting engine; River is planned as a lightweight
 CPU-side reliability/meta-model that predicts how trustworthy each Kronos
@@ -8,7 +18,7 @@ future outcome resolves. First scope: Kronos output + OHLCV/VWAP/volume/
 volatility/time-of-day context, strict predict -> score -> learn ordering,
 durable replay, calibration metrics and no live trading. Later branches may add
 time-and-sales/liquidity features and additional independent forecasters. This
-is design only; River is not implemented. See `docs/RIVER_ONLINE_LEARNING.md`.
+was the original design proposal; implementation status is above. See `docs/RIVER_ONLINE_LEARNING.md`.
 
 2026-09-24: user requested a rolling 50-minute forecast on each completed
 live minute. Browser now runs both five- and fifty-minute predictions per new

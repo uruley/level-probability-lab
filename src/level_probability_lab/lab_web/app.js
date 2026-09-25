@@ -361,7 +361,30 @@ async function refreshForward(){
  }catch(e){$('reviewStatus').textContent='Recording review unavailable: '+e.message;}finally{forwardBusy=false;}
 }
 let forwardChosenDate='';
+// Read-only observer. River's worker and failures never enter the forecast loop.
+async function refreshRiver(){
+ const status=document.getElementById('riverStatus'),body=document.getElementById('riverRows');
+ if(!status||!catalog)return;
+ try{
+  const d=await api('river',{forecast_id:$('forecastSelect').value});
+  status.textContent=`${d.status} · ${d.observations||0} scored observations · ${d.pending||0} pending · ${d.late_predictions||0} late · Experimental directional reliability, not a trade-win probability.`;
+  body.replaceChildren();
+  const num=v=>v==null?'—':Number(v).toFixed(3);
+  for(const p of d.predictions||[]){
+   const m=(d.groups||[]).find(g=>g.model_key===p.model_key)||{};
+   const tr=document.createElement('tr');
+   for(const v of [`+${p.horizon}m`,p.direction>0?'UP':p.direction<0?'DOWN':'NEUTRAL',p.probability==null?'Unavailable':`${(100*p.probability).toFixed(1)}%`,m.observations||0,num(m.brier),m.recent_kronos_accuracy==null?'—':`${(100*m.recent_kronos_accuracy).toFixed(1)}%`,m.calibration_status||'insufficient observations']){
+    const td=document.createElement('td');td.textContent=v;tr.append(td);
+   }body.append(tr);
+  }
+  if(!body.children.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=7;td.textContent=d.message||'No live River prediction saved for the selected forecast.';tr.append(td);body.append(tr);}
+ }catch(e){status.textContent='River unavailable. Kronos continues independently.';}
+}
 window.addEventListener('DOMContentLoaded',()=>{
+ const river=document.createElement('section');river.className='table-wrap';
+ river.innerHTML='<h2>River · selected five-minute forecast</h2><p id="riverStatus" role="status">Checking independent worker…</p><p class="hint">Separate +1 to +5 minute models. Scores use probabilities saved before outcomes. Flat and incomplete outcomes do not train. Historical replay results remain separate.</p><table><thead><tr><th>Horizon</th><th>Kronos direction</th><th>River reliability</th><th>Observations</th><th>Brier</th><th>Recent Kronos accuracy</th><th>Calibration</th></tr></thead><tbody id="riverRows"></tbody></table>';
+ document.querySelector('main').append(river);
+ $('forecastSelect').addEventListener('change',refreshRiver);setInterval(refreshRiver,5000);refreshRiver();
  const panel=document.createElement('section');panel.className='table-wrap';panel.id='forwardReview';
  panel.innerHTML='<h2>Recording & five-minute results</h2><p class="hint">Saved Webull forecasts · reviewed development data, not an untouched final test. Refreshing this panel does not start recording. Times are New York.</p><label>Symbol <select id="reviewSymbol"><option>QQQ</option><option>TSLA</option><option>NVDA</option><option>SPCX</option><option>AMZN</option><option>GOOGL</option></select></label> <label>Session <select id="reviewDate"><option value="">Latest recorded session</option></select></label> <button id="reviewRefresh">Refresh saved results</button><p id="reviewStatus">Checking saved recordings…</p><h3>Daily results · five-minute horizon</h3><p class="hint">Close MAE compares the +5 close with keeping the last price unchanged. High/low MAE uses the next five candles. Settings stay separate. Late/unknown forecasts are excluded from scored totals. Touch counts can resolve before five minutes; overlapping forecasts are not independent trades.</p><table><thead><tr><th>Engine / settings</th><th>Scored / saved</th><th>Close MAE</th><th>Flat-price MAE</th><th>High / low MAE</th><th>Coverage</th></tr></thead><tbody id="reviewDaily"></tbody></table><h3>Saved forecasts · latest 100</h3><p class="hint">VWAP is a frozen candle-based approximation. Missing historical context stays unavailable. Target/stop outcomes use candles; same-minute double touches remain ambiguous.</p><table><thead><tr><th>Origin · NY</th><th>Status</th><th>Close / baseline error</th><th>High / low error</th><th>Frozen context</th><th>Forecast vs actual</th></tr></thead><tbody id="reviewRows"></tbody></table>';
  document.querySelector('main').append(panel);
